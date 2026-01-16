@@ -67,11 +67,11 @@ export function SettingsForm({ workspace, appUrl }: SettingsFormProps) {
       <div className="space-y-2">
         <Label>URL do Negócio</Label>
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">{appUrl}/</span>
+          <span className="text-muted-foreground text-sm shrink-0">{appUrl}/</span>
           <Input
             value={workspace.slug}
             disabled
-            className="bg-muted"
+            className="bg-muted flex-1"
           />
         </div>
         <p className="text-xs text-muted-foreground">
