@@ -4,7 +4,7 @@ import { getProduct, getProductComposition } from "@/actions/products";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
+import { IconArrowLeft, IconPencil, IconPlus } from "@tabler/icons-react";
 import { ProductCompositionSection } from "./composition-section";
 
 interface ProductDetailPageProps {
@@ -31,12 +31,20 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           <IconArrowLeft className="w-4 h-4 mr-1" />
           Voltar para produtos
         </Link>
-        <Button variant="outline" asChild>
-          <Link href={`/${workspaceSlug}/products/${productId}/edit`}>
-            <IconPencil className="w-4 h-4 mr-2" />
-            Editar
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/${workspaceSlug}/products/${productId}/edit`}>
+              <IconPencil />
+              Editar
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href={`/${workspaceSlug}/products/new`}>
+              <IconPlus />
+              Novo Produto
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -63,7 +71,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               <div className="text-right">
                 <div className="text-sm text-muted-foreground">Custo base</div>
                 <div className="text-2xl font-bold">
-                  R$ {parseFloat(product.baseCost).toFixed(2)}
+                  R$ {parseFloat(product.baseCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>

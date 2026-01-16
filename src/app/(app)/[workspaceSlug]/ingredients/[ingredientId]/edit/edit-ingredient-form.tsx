@@ -157,7 +157,7 @@ export function EditIngredientForm({
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="priceUnitId">Unidade do preço *</Label>
+          <Label htmlFor="priceUnitId">Unidade do custo *</Label>
           <Select
             name="priceUnitId"
             value={priceUnitId}
@@ -178,7 +178,7 @@ export function EditIngredientForm({
         </div>
 
         <div className="space-y-2">
-          <Label>Preço</Label>
+          <Label>Custo</Label>
           <div className="flex items-center gap-2">
             <Input
               id="priceQuantity"
@@ -204,24 +204,10 @@ export function EditIngredientForm({
           </div>
           <p className="text-xs text-muted-foreground">
             {ingredient.averagePriceManual
-              ? "Preço definido manualmente."
+              ? "Custo definido manualmente."
               : "Calculado automaticamente pelas entradas."}
           </p>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="hasVariations"
-          name="hasVariations"
-          value="true"
-          defaultChecked={ingredient.hasVariations}
-          className="rounded"
-        />
-        <Label htmlFor="hasVariations" className="cursor-pointer">
-          Este insumo possui variações
-        </Label>
       </div>
 
       <div className="flex gap-3 pt-4">

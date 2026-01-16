@@ -470,6 +470,7 @@ export async function getAvailableItemsForProduct(workspaceSlug: string, current
       name: ingredient.name,
       unitId: ingredient.priceUnitId,
       unitAbbreviation: unit.abbreviation,
+      measurementType: unit.measurementType,
       baseCostPerUnit: ingredient.baseCostPerUnit,
     })
     .from(ingredient)
@@ -484,6 +485,7 @@ export async function getAvailableItemsForProduct(workspaceSlug: string, current
       ingredientName: ingredient.name,
       unitId: ingredientVariation.unitId,
       unitAbbreviation: unit.abbreviation,
+      measurementType: unit.measurementType,
       calculatedCost: ingredientVariation.calculatedCost,
     })
     .from(ingredientVariation)
@@ -498,6 +500,7 @@ export async function getAvailableItemsForProduct(workspaceSlug: string, current
       name: recipe.name,
       unitId: recipe.yieldUnitId,
       unitAbbreviation: unit.abbreviation,
+      measurementType: unit.measurementType,
       costPerPortion: recipe.costPerPortion,
     })
     .from(recipe)
@@ -542,6 +545,7 @@ export async function getAvailableItemsForProduct(workspaceSlug: string, current
         cost: p.baseCost,
         unitId: null,
         unitAbbreviation: "un",
+        measurementType: "unit" as const,
       })),
   };
 }

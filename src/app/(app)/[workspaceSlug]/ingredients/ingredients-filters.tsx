@@ -107,7 +107,7 @@ export function IngredientsFilters({ workspaceSlug, categories }: IngredientsFil
       >
         <option value="">Todos os tipos</option>
         <option value="true">Com variações</option>
-        <option value="false">Preço único</option>
+        <option value="false">Sem variações</option>
       </select>
 
       {/* Clear filters */}

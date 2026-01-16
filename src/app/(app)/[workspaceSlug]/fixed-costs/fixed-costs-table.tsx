@@ -75,7 +75,7 @@ export function FixedCostsTable({ workspaceSlug, costs }: FixedCostsTableProps) 
                 {cost.description || "-"}
               </td>
               <td className="px-4 py-3 text-right font-mono">
-                R$ {parseFloat(cost.value).toFixed(2)}
+                R$ {parseFloat(cost.value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
               <td className="px-4 py-3 text-center">
                 {cost.active ? (

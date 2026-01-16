@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { IconPlus, IconTrash, IconArrowRight } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconArrowRight, IconLoader2 } from "@tabler/icons-react";
 
 interface Variation {
   id: string;
@@ -51,6 +51,8 @@ interface VariationsSectionProps {
   ingredientId: string;
   variations: Variation[];
   measurementType: "weight" | "volume" | "unit";
+  priceUnitAbbreviation: string | null;
+  priceUnitConversionFactor: string | null;
 }
 
 
@@ -59,6 +61,8 @@ export function VariationsSection({
   ingredientId,
   variations,
   measurementType,
+  priceUnitAbbreviation,
+  priceUnitConversionFactor,
 }: VariationsSectionProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -245,13 +249,21 @@ export function VariationsSection({
 
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={loading}>
-                {loading ? "Salvando..." : "Salvar"}
+                {loading ? (
+                  <>
+                    <IconLoader2 className="w-4 h-4 mr-1 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar"
+                )}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setShowForm(false)}
+                disabled={loading}
               >
                 Cancelar
               </Button>
@@ -259,11 +271,18 @@ export function VariationsSection({
           </form>
         )}
 
-        {variations.length === 0 ? (
+        {!showForm && (
+          <p className="text-sm text-muted-foreground mb-4">
+            Variações calculam o aproveitamento/desperdício de um insumo (ex: carne desossada, fruta descascada).
+            Para preparações completas, use <strong>Receitas</strong>.
+          </p>
+        )}
+
+        {variations.length === 0 && !showForm ? (
           <p className="text-muted-foreground text-sm">
             Nenhuma variação cadastrada.
           </p>
-        ) : (
+        ) : variations.length === 0 ? null : (
           <div className="divide-y">
             {variations.map((v) => {
               const yieldPct = parseFloat(v.yieldPercentage);
@@ -287,7 +306,10 @@ export function VariationsSection({
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">Custo</div>
                       <div className="font-medium">
-                        R$ {parseFloat(v.calculatedCost).toFixed(2)}/{v.unitAbbreviation}
+                        R$ {(parseFloat(v.calculatedCost) * parseFloat(priceUnitConversionFactor || "1")).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{priceUnitAbbreviation || "un"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Base: R$ {parseFloat(v.calculatedCost).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}/{measurementType === "weight" ? "g" : measurementType === "volume" ? "ml" : "un"}
                       </div>
                     </div>
                     <AlertDialog>

@@ -48,7 +48,7 @@ export default async function FixedCostsPage({ params, searchParams }: FixedCost
           <CardContent className="py-4">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Total mensal (ativos na página)</span>
-              <span className="text-2xl font-bold">R$ {activeTotal.toFixed(2)}</span>
+              <span className="text-2xl font-bold">R$ {activeTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </CardContent>
         </Card>

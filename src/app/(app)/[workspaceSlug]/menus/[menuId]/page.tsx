@@ -96,20 +96,20 @@ export default async function MenuDetailPage({ params }: MenuDetailPageProps) {
             <Card>
               <CardContent className="py-4">
                 <div className="text-sm text-muted-foreground">Receita total</div>
-                <div className="text-xl font-bold">R$ {totalRevenue.toFixed(2)}</div>
+                <div className="text-xl font-bold">R$ {totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="py-4">
                 <div className="text-sm text-muted-foreground">Custo total</div>
-                <div className="text-xl font-bold">R$ {totalCost.toFixed(2)}</div>
+                <div className="text-xl font-bold">R$ {totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="py-4">
                 <div className="text-sm text-muted-foreground">Lucro total</div>
                 <div className={`text-xl font-bold ${totalMargin >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  R$ {totalMargin.toFixed(2)}
+                  R$ {totalMargin.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </CardContent>
             </Card>

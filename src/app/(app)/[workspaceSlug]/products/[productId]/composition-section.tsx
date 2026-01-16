@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addProductComposition, removeProductComposition, updateProductComposition, getAvailableItemsForProduct } from "@/actions/products";
 import { getUnits } from "@/actions/units";
@@ -27,7 +27,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { IconPlus, IconTrash, IconPencil } from "@tabler/icons-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { IconPlus, IconTrash, IconPencil, IconChevronDown, IconSearch } from "@tabler/icons-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CompositionItem {
   id: string;
@@ -53,7 +65,15 @@ type AvailableItem = {
   unitId: string | null;
   unitAbbreviation: string | null;
   cost: string;
+  measurementType: "weight" | "volume" | "unit" | null;
 };
+
+interface Unit {
+  id: string;
+  name: string;
+  abbreviation: string;
+  measurementType: "weight" | "volume" | "unit";
+}
 
 export function ProductCompositionSection({
   workspaceSlug,
@@ -69,10 +89,54 @@ export function ProductCompositionSection({
     recipes: AvailableItem[];
     products: AvailableItem[];
   }>({ ingredients: [], variations: [], recipes: [], products: [] });
-  const [units, setUnits] = useState<Array<{ id: string; name: string; abbreviation: string }>>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [selectedItem, setSelectedItem] = useState<AvailableItem | null>(null);
+  const [unitId, setUnitId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingItem, setEditingItem] = useState<CompositionItem | null>(null);
   const [editQuantity, setEditQuantity] = useState("");
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus search input when popover opens
+  useEffect(() => {
+    if (popoverOpen && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    }
+  }, [popoverOpen]);
+
+  // Filter units by selected item's measurementType
+  const filteredUnits = useMemo(() => {
+    if (!selectedItem?.measurementType) return units;
+    return units.filter((u) => u.measurementType === selectedItem.measurementType);
+  }, [units, selectedItem?.measurementType]);
+
+  // Filter items based on search query
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return availableItems;
+
+    return {
+      ingredients: availableItems.ingredients.filter(item =>
+        item.displayName.toLowerCase().includes(query)
+      ),
+      variations: availableItems.variations.filter(item =>
+        item.displayName.toLowerCase().includes(query)
+      ),
+      recipes: availableItems.recipes.filter(item =>
+        item.displayName.toLowerCase().includes(query)
+      ),
+      products: availableItems.products.filter(item =>
+        item.displayName.toLowerCase().includes(query)
+      ),
+    };
+  }, [availableItems, searchQuery]);
+
+  const hasFilteredResults =
+    filteredItems.ingredients.length > 0 ||
+    filteredItems.variations.length > 0 ||
+    filteredItems.recipes.length > 0 ||
+    filteredItems.products.length > 0;
 
   async function loadData() {
     const [itemsData, unitsResult] = await Promise.all([
@@ -91,6 +155,8 @@ export function ProductCompositionSection({
       if (result.success) {
         setShowForm(false);
         setSelectedItem(null);
+        setUnitId("");
+        setSearchQuery("");
         router.refresh();
       } else {
         alert(result.error);
@@ -137,12 +203,12 @@ export function ProductCompositionSection({
     }
   }
 
-  const allItems = [
-    ...availableItems.ingredients,
-    ...availableItems.variations,
-    ...availableItems.recipes,
-    ...availableItems.products,
-  ];
+  function handleSelectItem(item: AvailableItem) {
+    setSelectedItem(item);
+    if (item.unitId) setUnitId(item.unitId);
+    setSearchQuery("");
+    setPopoverOpen(false);
+  }
 
   const typeLabels = {
     ingredient: "Insumo",
@@ -156,8 +222,8 @@ export function ProductCompositionSection({
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Composição do Produto</CardTitle>
         {!showForm && (
-          <Button size="sm" onClick={loadData}>
-            <IconPlus className="w-4 h-4 mr-1" />
+          <Button onClick={loadData}>
+            <IconPlus />
             Adicionar Item
           </Button>
         )}
@@ -166,51 +232,129 @@ export function ProductCompositionSection({
         {showForm && (
           <form action={handleSubmit} className="space-y-4 mb-6 p-4 bg-muted/50 rounded-lg">
             <div className="space-y-2">
-              <Label htmlFor="itemSelect">Selecione o item *</Label>
-              <select
-                id="itemSelect"
-                className="w-full h-8 px-2 rounded-md border text-sm"
-                onChange={(e) => {
-                  const item = allItems.find((i) => i.id === e.target.value);
-                  setSelectedItem(item || null);
-                }}
-              >
-                <option value="">Selecione...</option>
-                <optgroup label="Insumos">
-                  {availableItems.ingredients.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.displayName} (R$ {parseFloat(item.cost).toFixed(2)}/{item.unitAbbreviation})
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Variações">
-                  {availableItems.variations.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.displayName} (R$ {parseFloat(item.cost).toFixed(4)}/{item.unitAbbreviation})
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Receitas">
-                  {availableItems.recipes.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.displayName} (R$ {parseFloat(item.cost).toFixed(2)}/{item.unitAbbreviation})
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Produtos (Combos)">
-                  {availableItems.products.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.displayName} (R$ {parseFloat(item.cost).toFixed(2)}/un)
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+              <Label>Selecione o item *</Label>
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className={selectedItem ? "" : "text-muted-foreground"}>
+                      {selectedItem ? selectedItem.displayName : "Selecione um item"}
+                    </span>
+                    <IconChevronDown className="h-4 w-4 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                  <div className="flex items-center border-b px-3">
+                    <IconSearch className="h-4 w-4 shrink-0 opacity-50" />
+                    <input
+                      ref={searchInputRef}
+                      className="flex h-10 w-full bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground"
+                      placeholder="Buscar item..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {!hasFilteredResults ? (
+                      <div className="py-6 text-center text-sm text-muted-foreground">
+                        Nenhum item encontrado
+                      </div>
+                    ) : (
+                      <>
+                        {filteredItems.ingredients.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 sticky top-0">
+                              Insumos
+                            </div>
+                            {filteredItems.ingredients.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleSelectItem(item)}
+                              >
+                                <span>{item.displayName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {filteredItems.variations.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 sticky top-0">
+                              Variações
+                            </div>
+                            {filteredItems.variations.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleSelectItem(item)}
+                              >
+                                <span>{item.displayName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}/{item.unitAbbreviation}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {filteredItems.recipes.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 sticky top-0">
+                              Receitas
+                            </div>
+                            {filteredItems.recipes.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleSelectItem(item)}
+                              >
+                                <span>{item.displayName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {filteredItems.products.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 sticky top-0">
+                              Produtos
+                            </div>
+                            {filteredItems.products.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleSelectItem(item)}
+                              >
+                                <span>{item.displayName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/un
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {selectedItem && (
               <>
                 <input type="hidden" name="type" value={selectedItem.type} />
                 <input type="hidden" name="itemId" value={selectedItem.id} />
+                <input type="hidden" name="unitId" value={unitId} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -227,19 +371,19 @@ export function ProductCompositionSection({
                   </div>
                   {selectedItem.type !== "product" && (
                     <div className="space-y-2">
-                      <Label htmlFor="unitId">Unidade</Label>
-                      <select
-                        id="unitId"
-                        name="unitId"
-                        defaultValue={selectedItem.unitId || ""}
-                        className="w-full h-8 px-2 rounded-md border text-sm"
-                      >
-                        {units.map((unit) => (
-                          <option key={unit.id} value={unit.id}>
-                            {unit.name} ({unit.abbreviation})
-                          </option>
-                        ))}
-                      </select>
+                      <Label>Unidade *</Label>
+                      <Select value={unitId} onValueChange={setUnitId} required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredUnits.map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.abbreviation} ({unit.name})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -247,16 +391,17 @@ export function ProductCompositionSection({
             )}
 
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={loading || !selectedItem}>
+              <Button type="submit" disabled={loading || !selectedItem}>
                 {loading ? "Adicionando..." : "Adicionar"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={() => {
                   setShowForm(false);
                   setSelectedItem(null);
+                  setUnitId("");
+                  setSearchQuery("");
                 }}
               >
                 Cancelar
@@ -270,69 +415,78 @@ export function ProductCompositionSection({
             Nenhum item adicionado. Adicione insumos, receitas ou outros produtos.
           </p>
         ) : (
-          <div className="divide-y">
-            {composition.map((item) => (
-              <div key={item.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{item.itemName}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {typeLabels[item.type]}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {parseFloat(item.quantity).toLocaleString("pt-BR")}{" "}
-                    {item.unitAbbreviation || "un"}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-right mr-2">
-                    <div className="font-medium">
-                      R$ {parseFloat(item.calculatedCost).toFixed(2)}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEditDialog(item)}
-                  >
-                    <IconPencil className="w-4 h-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-red-600">
-                        <IconTrash className="w-4 h-4" />
+          <div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-2 font-medium">Item</th>
+                  <th className="pb-2 font-medium">Tipo</th>
+                  <th className="pb-2 font-medium text-right">Quantidade</th>
+                  <th className="pb-2 font-medium text-right">Custo</th>
+                  <th className="pb-2 w-20"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {composition.map((item) => (
+                  <tr key={item.id} className="hover:bg-muted/50">
+                    <td className="py-2 font-medium">{item.itemName}</td>
+                    <td className="py-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {typeLabels[item.type]}
+                      </Badge>
+                    </td>
+                    <td className="py-2 text-right text-muted-foreground">
+                      {parseFloat(item.quantity).toLocaleString("pt-BR")} {item.unitAbbreviation || "un"}
+                    </td>
+                    <td className="py-2 text-right font-medium">
+                      R$ {parseFloat(item.calculatedCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(item)}
+                      >
+                        <IconPencil />
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remover item</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Tem certeza que deseja remover "{item.itemName}" do produto?
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleRemove(item.id)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          Remover
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            ))}
-            <div className="pt-3 flex justify-end">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Custo base total</div>
-                <div className="text-lg font-bold">
-                  R$ {composition.reduce((sum, i) => sum + parseFloat(i.calculatedCost), 0).toFixed(2)}
-                </div>
-              </div>
-            </div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                            <IconTrash />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remover item</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja remover "{item.itemName}" do produto?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleRemove(item.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Remover
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t">
+                  <td colSpan={3} className="py-2 text-right text-muted-foreground">Custo base total</td>
+                  <td className="py-2 text-right font-bold">
+                    R$ {composition.reduce((sum, i) => sum + parseFloat(i.calculatedCost), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
 

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { deleteIngredient } from "@/actions/ingredients";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { IconEye, IconPencil, IconTrash } from "@tabler/icons-react";
+import { IconEye, IconPencil, IconTrash, IconLoader2 } from "@tabler/icons-react";
 
 interface Ingredient {
   id: string;
@@ -26,6 +26,7 @@ interface Ingredient {
   averagePrice: string;
   priceUnitAbbreviation: string | null;
   hasVariations: boolean;
+  variationNames: string[];
 }
 
 interface IngredientsTableProps {
@@ -37,14 +38,17 @@ export function IngredientsTable({ workspaceSlug, ingredients }: IngredientsTabl
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingName, setDeletingName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function handleDelete() {
     if (!deletingId) return;
 
+    setIsDeleting(true);
     const result = await deleteIngredient(workspaceSlug, deletingId);
     if (result.error) {
       alert(result.error);
     }
+    setIsDeleting(false);
     setDeletingId(null);
     router.refresh();
   }
@@ -62,8 +66,8 @@ export function IngredientsTable({ workspaceSlug, ingredients }: IngredientsTabl
           <tr className="border-b text-left text-sm text-muted-foreground">
             <th className="px-4 py-3 font-medium">Insumo</th>
             <th className="px-4 py-3 font-medium">Categoria</th>
-            <th className="px-4 py-3 font-medium text-right">Preço</th>
-            <th className="px-4 py-3 font-medium text-center">Tipo</th>
+            <th className="px-4 py-3 font-medium text-right">Custo</th>
+            <th className="px-4 py-3 font-medium">Variações</th>
             <th className="px-4 py-3 font-medium text-right">Ações</th>
           </tr>
         </thead>
@@ -78,24 +82,27 @@ export function IngredientsTable({ workspaceSlug, ingredients }: IngredientsTabl
                       style={{ backgroundColor: ing.categoryColor }}
                     />
                   )}
-                  <span className="font-medium">{ing.name}</span>
+                  <Link
+                    href={`/${workspaceSlug}/ingredients/${ing.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {ing.name}
+                  </Link>
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">
                 {ing.categoryName || "-"}
               </td>
               <td className="px-4 py-3 text-right font-mono">
-                R$ {parseFloat(ing.averagePrice).toFixed(2)}/{ing.priceUnitAbbreviation || "un"}
+                R$ {formatCurrency(ing.averagePrice)}/{ing.priceUnitAbbreviation || "un"}
               </td>
-              <td className="px-4 py-3 text-center">
-                {ing.hasVariations ? (
-                  <Badge variant="secondary" className="text-xs">
-                    Variações
-                  </Badge>
+              <td className="px-4 py-3">
+                {ing.variationNames.length > 0 ? (
+                  <span className="text-sm text-muted-foreground">
+                    {ing.variationNames.join(", ")}
+                  </span>
                 ) : (
-                  <Badge variant="outline" className="text-xs text-muted-foreground">
-                    Único
-                  </Badge>
+                  <span className="text-sm text-muted-foreground/50">-</span>
                 )}
               </td>
               <td className="px-4 py-3 text-right">
@@ -135,12 +142,20 @@ export function IngredientsTable({ workspaceSlug, ingredients }: IngredientsTabl
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
+              disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700"
             >
-              Excluir
+              {isDeleting ? (
+                <>
+                  <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addRecipeItem, removeRecipeItem, getAvailableItemsForRecipe } from "@/actions/recipes";
 import { getUnits } from "@/actions/units";
@@ -12,9 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -29,7 +27,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { IconPlus, IconTrash, IconChevronDown, IconSearch } from "@tabler/icons-react";
 
 interface RecipeItem {
   id: string;
@@ -82,12 +85,45 @@ export function RecipeItemsSection({
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedItem, setSelectedItem] = useState<AvailableItem | null>(null);
   const [unitId, setUnitId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus search input when popover opens
+  useEffect(() => {
+    if (popoverOpen && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    }
+  }, [popoverOpen]);
 
   // Filter units by selected item's measurementType
   const filteredUnits = useMemo(() => {
     if (!selectedItem?.measurementType) return units;
     return units.filter((u) => u.measurementType === selectedItem.measurementType);
   }, [units, selectedItem?.measurementType]);
+
+  // Filter items based on search query
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return availableItems;
+
+    return {
+      ingredients: availableItems.ingredients.filter(item =>
+        item.displayName.toLowerCase().includes(query)
+      ),
+      variations: availableItems.variations.filter(item =>
+        item.displayName.toLowerCase().includes(query)
+      ),
+      recipes: availableItems.recipes.filter(item =>
+        item.displayName.toLowerCase().includes(query)
+      ),
+    };
+  }, [availableItems, searchQuery]);
+
+  const hasFilteredResults =
+    filteredItems.ingredients.length > 0 ||
+    filteredItems.variations.length > 0 ||
+    filteredItems.recipes.length > 0;
 
   async function loadData() {
     const [itemsData, unitsResult] = await Promise.all([
@@ -108,6 +144,7 @@ export function RecipeItemsSection({
       if (result.success) {
         setShowForm(false);
         setSelectedItem(null);
+        setSearchQuery("");
         router.refresh();
       } else {
         alert(result.error);
@@ -122,11 +159,12 @@ export function RecipeItemsSection({
     router.refresh();
   }
 
-  const allItems = [
-    ...availableItems.ingredients,
-    ...availableItems.variations,
-    ...availableItems.recipes,
-  ];
+  function handleSelectItem(item: AvailableItem) {
+    setSelectedItem(item);
+    if (item.unitId) setUnitId(item.unitId);
+    setSearchQuery("");
+    setPopoverOpen(false);
+  }
 
   const typeLabels = {
     ingredient: "Insumo",
@@ -139,8 +177,8 @@ export function RecipeItemsSection({
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Itens da Receita</CardTitle>
         {!showForm && (
-          <Button size="sm" onClick={loadData}>
-            <IconPlus className="w-4 h-4 mr-1" />
+          <Button onClick={loadData}>
+            <IconPlus />
             Adicionar Item
           </Button>
         )}
@@ -150,54 +188,101 @@ export function RecipeItemsSection({
           <form action={handleSubmit} className="space-y-4 mb-6 p-4 bg-muted/50 rounded-lg">
             <div className="space-y-2">
               <Label>Selecione o item *</Label>
-              <Select
-                onValueChange={(value) => {
-                  const item = allItems.find((i) => i.id === value);
-                  setSelectedItem(item || null);
-                  // Reset and set default unit
-                  if (item?.unitId) {
-                    setUnitId(item.unitId);
-                  } else {
-                    setUnitId("");
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableItems.ingredients.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Insumos</SelectLabel>
-                      {availableItems.ingredients.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.displayName} (R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation})
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {availableItems.variations.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Variações</SelectLabel>
-                      {availableItems.variations.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.displayName} (R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation})
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {availableItems.recipes.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Receitas</SelectLabel>
-                      {availableItems.recipes.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.displayName} (R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation})
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                </SelectContent>
-              </Select>
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className={selectedItem ? "" : "text-muted-foreground"}>
+                      {selectedItem ? selectedItem.displayName : "Selecione um item"}
+                    </span>
+                    <IconChevronDown className="h-4 w-4 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                  <div className="flex items-center border-b px-3">
+                    <IconSearch className="h-4 w-4 shrink-0 opacity-50" />
+                    <input
+                      ref={searchInputRef}
+                      className="flex h-10 w-full bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground"
+                      placeholder="Buscar item..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {!hasFilteredResults ? (
+                      <div className="py-6 text-center text-sm text-muted-foreground">
+                        Nenhum item encontrado
+                      </div>
+                    ) : (
+                      <>
+                        {filteredItems.ingredients.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 sticky top-0">
+                              Insumos
+                            </div>
+                            {filteredItems.ingredients.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleSelectItem(item)}
+                              >
+                                <span>{item.displayName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {filteredItems.variations.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 sticky top-0">
+                              Variações
+                            </div>
+                            {filteredItems.variations.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleSelectItem(item)}
+                              >
+                                <span>{item.displayName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {filteredItems.recipes.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 sticky top-0">
+                              Receitas
+                            </div>
+                            {filteredItems.recipes.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center justify-between"
+                                onClick={() => handleSelectItem(item)}
+                              >
+                                <span>{item.displayName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  R$ {parseFloat(item.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{item.unitAbbreviation}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {selectedItem && (
@@ -239,17 +324,17 @@ export function RecipeItemsSection({
             )}
 
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={loading || !selectedItem || !unitId}>
+              <Button type="submit" disabled={loading || !selectedItem || !unitId}>
                 {loading ? "Adicionando..." : "Adicionar"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={() => {
                   setShowForm(false);
                   setSelectedItem(null);
                   setUnitId("");
+                  setSearchQuery("");
                 }}
               >
                 Cancelar
@@ -287,13 +372,13 @@ export function RecipeItemsSection({
                       {parseFloat(item.quantity).toLocaleString("pt-BR")} {item.unitAbbreviation}
                     </td>
                     <td className="py-2 text-right font-medium">
-                      R$ {parseFloat(item.calculatedCost).toFixed(2)}
+                      R$ {parseFloat(item.calculatedCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="py-2 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10">
-                            <IconTrash className="w-4 h-4" />
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                            <IconTrash />
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
@@ -322,7 +407,7 @@ export function RecipeItemsSection({
                 <tr className="border-t">
                   <td colSpan={3} className="py-2 text-right text-muted-foreground">Custo total</td>
                   <td className="py-2 text-right font-bold">
-                    R$ {items.reduce((sum, i) => sum + parseFloat(i.calculatedCost), 0).toFixed(2)}
+                    R$ {items.reduce((sum, i) => sum + parseFloat(i.calculatedCost), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td></td>
                 </tr>

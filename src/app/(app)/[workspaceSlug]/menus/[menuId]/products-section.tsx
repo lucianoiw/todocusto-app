@@ -286,7 +286,7 @@ export function MenuProductsSection({
                 <option value="">Selecione...</option>
                 {availableProducts.map((prod) => (
                   <option key={prod.id} value={prod.id}>
-                    {prod.name} (Custo: R$ {parseFloat(prod.baseCost).toFixed(2)})
+                    {prod.name} (Custo: R$ {parseFloat(prod.baseCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                   </option>
                 ))}
               </select>
@@ -335,7 +335,7 @@ export function MenuProductsSection({
                             <>
                               <span className="text-sm text-blue-700 dark:text-blue-400">Preço sugerido:</span>
                               <div className="text-xl font-bold text-blue-700 dark:text-blue-400">
-                                R$ {suggestedPrice.toFixed(2)}
+                                R$ {suggestedPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </div>
                             </>
                           )}
@@ -376,7 +376,7 @@ export function MenuProductsSection({
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Custo base: R$ {parseFloat(selectedProduct.baseCost).toFixed(2)}
+                    Custo base: R$ {parseFloat(selectedProduct.baseCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -390,7 +390,7 @@ export function MenuProductsSection({
                           <span className="text-sm text-muted-foreground">Margem resultante:</span>
                           <div className="text-right">
                             <span className={`font-bold ${preview.percentage >= 0 ? "text-green-600" : "text-red-600"}`}>
-                              R$ {preview.value.toFixed(2)} ({preview.percentage.toFixed(1)}%)
+                              R$ {preview.value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({preview.percentage.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                             </span>
                           </div>
                         </div>
@@ -452,22 +452,22 @@ export function MenuProductsSection({
                     <tr key={item.id}>
                       <td className="py-3 font-medium">{item.productName}</td>
                       <td className="py-3 text-right text-muted-foreground">
-                        {baseCost.toFixed(2)}
+                        {baseCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="py-3 text-right text-muted-foreground">
-                        {feesCost > 0 ? feesCost.toFixed(2) : "-"}
+                        {feesCost > 0 ? feesCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
                       </td>
                       <td className="py-3 text-right text-muted-foreground">
-                        {fixedCostContrib > 0 ? fixedCostContrib.toFixed(2) : "-"}
+                        {fixedCostContrib > 0 ? fixedCostContrib.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}
                       </td>
                       <td className="py-3 text-right text-foreground font-medium">
-                        {parseFloat(item.totalCost).toFixed(2)}
+                        {parseFloat(item.totalCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="py-3 text-right font-medium">
-                        {salePrice.toFixed(2)}
+                        {salePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className={`py-3 text-right font-medium ${marginPercentage >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {parseFloat(item.marginValue).toFixed(2)}
+                        {parseFloat(item.marginValue).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="py-3 text-right">
                         <Badge
@@ -538,7 +538,7 @@ export function MenuProductsSection({
                   <span className="font-medium">{editingProduct.productName}</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Custo total: R$ {parseFloat(editingProduct.totalCost).toFixed(2)}
+                  Custo total: R$ {parseFloat(editingProduct.totalCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="editPrice">Preço de venda</Label>

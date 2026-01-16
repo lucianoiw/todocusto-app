@@ -181,38 +181,133 @@ export async function deleteCategory(workspaceSlug: string, categoryId: string) 
 
 export async function seedStandardCategories(workspaceId: string) {
   const standardCategories = [
-    // Ingredientes
-    { name: "Carnes", type: "ingredient" as const, color: "#ef4444" },
+    // ==================== INGREDIENTES ====================
+    // Proteínas
+    { name: "Carnes Bovinas", type: "ingredient" as const, color: "#ef4444" },
+    { name: "Carnes Suínas", type: "ingredient" as const, color: "#f87171" },
     { name: "Aves", type: "ingredient" as const, color: "#f97316" },
     { name: "Peixes e Frutos do Mar", type: "ingredient" as const, color: "#0ea5e9" },
-    { name: "Laticínios", type: "ingredient" as const, color: "#fbbf24" },
-    { name: "Vegetais", type: "ingredient" as const, color: "#22c55e" },
+    { name: "Embutidos e Frios", type: "ingredient" as const, color: "#fb7185" },
+    { name: "Ovos", type: "ingredient" as const, color: "#fcd34d" },
+
+    // Laticínios e Queijos
+    { name: "Leite e Derivados", type: "ingredient" as const, color: "#fbbf24" },
+    { name: "Queijos", type: "ingredient" as const, color: "#facc15" },
+    { name: "Manteigas e Cremes", type: "ingredient" as const, color: "#fde047" },
+
+    // Vegetais e Frutas
+    { name: "Vegetais e Legumes", type: "ingredient" as const, color: "#22c55e" },
+    { name: "Folhas e Ervas", type: "ingredient" as const, color: "#4ade80" },
     { name: "Frutas", type: "ingredient" as const, color: "#a855f7" },
+    { name: "Cogumelos", type: "ingredient" as const, color: "#a1a1aa" },
+
+    // Grãos e Farináceos
     { name: "Grãos e Cereais", type: "ingredient" as const, color: "#d97706" },
     { name: "Farinhas e Amidos", type: "ingredient" as const, color: "#eab308" },
+    { name: "Massas Secas", type: "ingredient" as const, color: "#ca8a04" },
+    { name: "Pães e Bases Prontas", type: "ingredient" as const, color: "#b45309" },
+
+    // Temperos e Condimentos
     { name: "Temperos e Especiarias", type: "ingredient" as const, color: "#84cc16" },
-    { name: "Óleos e Gorduras", type: "ingredient" as const, color: "#fcd34d" },
+    { name: "Molhos Prontos", type: "ingredient" as const, color: "#dc2626" },
+    { name: "Conservas e Enlatados", type: "ingredient" as const, color: "#78716c" },
+
+    // Doces e Confeitaria
     { name: "Açúcares e Adoçantes", type: "ingredient" as const, color: "#fca5a1" },
+    { name: "Chocolates e Cacau", type: "ingredient" as const, color: "#78350f" },
+    { name: "Confeitaria e Decoração", type: "ingredient" as const, color: "#ec4899" },
+    { name: "Fermentos e Leveduras", type: "ingredient" as const, color: "#d4d4d4" },
+
+    // Óleos e Gorduras
+    { name: "Óleos e Azeites", type: "ingredient" as const, color: "#a3e635" },
+    { name: "Gorduras", type: "ingredient" as const, color: "#fef08a" },
+
+    // Bebidas
     { name: "Bebidas", type: "ingredient" as const, color: "#60a5fa" },
+    { name: "Bebidas Alcoólicas", type: "ingredient" as const, color: "#7c3aed" },
+
+    // Outros
     { name: "Embalagens", type: "ingredient" as const, color: "#9ca3af" },
+    { name: "Descartáveis", type: "ingredient" as const, color: "#6b7280" },
 
-    // Receitas
-    { name: "Massas", type: "recipe" as const, color: "#fbbf24" },
+    // ==================== RECEITAS ====================
+    // Massas e Bases
+    { name: "Massas de Pizza", type: "recipe" as const, color: "#fbbf24" },
+    { name: "Massas de Pão", type: "recipe" as const, color: "#f59e0b" },
+    { name: "Massas Folhadas", type: "recipe" as const, color: "#d97706" },
+    { name: "Massas de Salgados", type: "recipe" as const, color: "#b45309" },
+    { name: "Massas de Bolo", type: "recipe" as const, color: "#fcd34d" },
+    { name: "Massas de Torta", type: "recipe" as const, color: "#eab308" },
+
+    // Molhos e Caldos
     { name: "Molhos", type: "recipe" as const, color: "#ef4444" },
-    { name: "Bases e Caldos", type: "recipe" as const, color: "#d97706" },
-    { name: "Recheios", type: "recipe" as const, color: "#f472b6" },
-    { name: "Coberturas", type: "recipe" as const, color: "#a78bfa" },
-    { name: "Pães e Fermentados", type: "recipe" as const, color: "#fcd34d" },
-    { name: "Sobremesas", type: "recipe" as const, color: "#f9a8d4" },
+    { name: "Caldos e Fundos", type: "recipe" as const, color: "#92400e" },
+    { name: "Marinadas e Temperos", type: "recipe" as const, color: "#84cc16" },
 
-    // Produtos
-    { name: "Pratos Principais", type: "product" as const, color: "#ef4444" },
+    // Recheios e Cremes
+    { name: "Recheios Salgados", type: "recipe" as const, color: "#f472b6" },
+    { name: "Recheios Doces", type: "recipe" as const, color: "#f9a8d4" },
+    { name: "Cremes e Mousses", type: "recipe" as const, color: "#fbcfe8" },
+    { name: "Ganaches", type: "recipe" as const, color: "#7c2d12" },
+
+    // Coberturas e Finalizações
+    { name: "Coberturas", type: "recipe" as const, color: "#a78bfa" },
+    { name: "Caldas e Xaropes", type: "recipe" as const, color: "#c084fc" },
+    { name: "Glacês e Fondant", type: "recipe" as const, color: "#e9d5ff" },
+
+    // Preparações Prontas
+    { name: "Carnes Preparadas", type: "recipe" as const, color: "#dc2626" },
+    { name: "Vegetais Preparados", type: "recipe" as const, color: "#22c55e" },
+    { name: "Montagens", type: "recipe" as const, color: "#64748b" },
+
+    // ==================== PRODUTOS ====================
+    // Pizzas e Massas
+    { name: "Pizzas Tradicionais", type: "product" as const, color: "#ef4444" },
+    { name: "Pizzas Especiais", type: "product" as const, color: "#dc2626" },
+    { name: "Pizzas Doces", type: "product" as const, color: "#f472b6" },
+    { name: "Calzones", type: "product" as const, color: "#ea580c" },
+    { name: "Esfihas", type: "product" as const, color: "#c2410c" },
+    { name: "Massas e Pastas", type: "product" as const, color: "#fbbf24" },
+
+    // Lanches
+    { name: "Hambúrgueres", type: "product" as const, color: "#b45309" },
+    { name: "Sanduíches", type: "product" as const, color: "#d97706" },
+    { name: "Hot Dogs", type: "product" as const, color: "#f97316" },
+    { name: "Wraps e Burritos", type: "product" as const, color: "#fb923c" },
+
+    // Salgados
+    { name: "Salgados Fritos", type: "product" as const, color: "#ca8a04" },
+    { name: "Salgados Assados", type: "product" as const, color: "#eab308" },
+    { name: "Empanados", type: "product" as const, color: "#fcd34d" },
+
+    // Pratos
+    { name: "Pratos Principais", type: "product" as const, color: "#b91c1c" },
     { name: "Entradas", type: "product" as const, color: "#22c55e" },
     { name: "Acompanhamentos", type: "product" as const, color: "#84cc16" },
-    { name: "Sobremesas", type: "product" as const, color: "#f9a8d4" },
-    { name: "Bebidas", type: "product" as const, color: "#60a5fa" },
-    { name: "Lanches", type: "product" as const, color: "#fbbf24" },
+    { name: "Porções", type: "product" as const, color: "#65a30d" },
+    { name: "Saladas", type: "product" as const, color: "#4ade80" },
+
+    // Padaria
+    { name: "Pães", type: "product" as const, color: "#92400e" },
+    { name: "Pães Recheados", type: "product" as const, color: "#a16207" },
+
+    // Confeitaria
+    { name: "Bolos", type: "product" as const, color: "#f9a8d4" },
+    { name: "Tortas", type: "product" as const, color: "#ec4899" },
+    { name: "Doces e Brigadeiros", type: "product" as const, color: "#db2777" },
+    { name: "Sobremesas", type: "product" as const, color: "#be185d" },
+    { name: "Sorvetes e Açaí", type: "product" as const, color: "#a855f7" },
+
+    // Bebidas
+    { name: "Bebidas Quentes", type: "product" as const, color: "#78350f" },
+    { name: "Bebidas Geladas", type: "product" as const, color: "#0ea5e9" },
+    { name: "Sucos e Vitaminas", type: "product" as const, color: "#f97316" },
+    { name: "Drinks e Coquetéis", type: "product" as const, color: "#7c3aed" },
+
+    // Outros
+    { name: "Menu Kids", type: "product" as const, color: "#fde047" },
     { name: "Combos", type: "product" as const, color: "#8b5cf6" },
+    { name: "Promoções", type: "product" as const, color: "#10b981" },
   ];
 
   for (const c of standardCategories) {

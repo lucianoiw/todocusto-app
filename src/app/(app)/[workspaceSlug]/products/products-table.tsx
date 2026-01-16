@@ -6,6 +6,7 @@ import Link from "next/link";
 import { deleteProduct } from "@/actions/products";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,14 +78,19 @@ export function ProductsTable({ workspaceSlug, products }: ProductsTableProps) {
                       style={{ backgroundColor: prod.categoryColor }}
                     />
                   )}
-                  <span className="font-medium">{prod.name}</span>
+                  <Link
+                    href={`/${workspaceSlug}/products/${prod.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {prod.name}
+                  </Link>
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">
                 {prod.categoryName || "-"}
               </td>
               <td className="px-4 py-3 text-right font-mono">
-                R$ {parseFloat(prod.baseCost).toFixed(2)}
+                R$ {formatCurrency(prod.baseCost)}
               </td>
               <td className="px-4 py-3 text-center">
                 {prod.active ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createEntry, deleteEntry } from "@/actions/ingredients";
 import { getUnits } from "@/actions/units";
@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconLoader2 } from "@tabler/icons-react";
 
 interface Entry {
   id: string;
@@ -62,6 +62,9 @@ interface EntriesSectionProps {
   ingredientId: string;
   entries: Entry[];
   measurementType: "weight" | "volume" | "unit";
+  currentAveragePrice: string;
+  priceUnitAbbreviation: string | null;
+  priceUnitConversionFactor: string | null;
 }
 
 export function EntriesSection({
@@ -69,6 +72,9 @@ export function EntriesSection({
   ingredientId,
   entries,
   measurementType,
+  currentAveragePrice,
+  priceUnitAbbreviation,
+  priceUnitConversionFactor,
 }: EntriesSectionProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -82,6 +88,63 @@ export function EntriesSection({
   const [updateAveragePrice, setUpdateAveragePrice] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [showNewSupplierInput, setShowNewSupplierInput] = useState(false);
+  const supplierInputRef = useRef<HTMLInputElement>(null);
+
+  // Form values for price preview
+  const [formQuantity, setFormQuantity] = useState("");
+  const [formPrice, setFormPrice] = useState("");
+
+  // Auto-focus on new supplier input
+  useEffect(() => {
+    if (showNewSupplierInput) {
+      supplierInputRef.current?.focus();
+    }
+  }, [showNewSupplierInput]);
+
+  // Calculate new average price preview
+  const pricePreview = useMemo(() => {
+    const selectedUnit = units.find((u) => u.id === unitId);
+    const qty = parseFloat(formQuantity);
+    const price = parseFloat(formPrice);
+    const priceUnitFactor = parseFloat(priceUnitConversionFactor || "1");
+
+    if (!selectedUnit || !qty || !price || qty <= 0 || price <= 0) {
+      return null;
+    }
+
+    // Calculate total cost and quantity in base units from existing entries
+    let existingTotalCost = 0;
+    let existingTotalQtyInBase = 0;
+
+    for (const entry of entries) {
+      existingTotalCost += parseFloat(entry.totalPrice);
+      const entryConversion = parseFloat(entry.unitConversionFactor || "1");
+      existingTotalQtyInBase += parseFloat(entry.quantity) * entryConversion;
+    }
+
+    // Calculate new entry in base units
+    const selectedUnitFactor = parseFloat(selectedUnit.conversionFactor);
+    const newQtyInBase = qty * selectedUnitFactor;
+    const newTotalCost = price; // price is already the total paid
+
+    // Total values with new entry
+    const totalCost = existingTotalCost + newTotalCost;
+    const totalQtyInBase = existingTotalQtyInBase + newQtyInBase;
+
+    // Calculate average price per price unit
+    const totalQtyInPriceUnit = totalQtyInBase / priceUnitFactor;
+    const newAveragePrice = totalQtyInPriceUnit > 0 ? totalCost / totalQtyInPriceUnit : 0;
+
+    const currentPrice = parseFloat(currentAveragePrice);
+    const diff = newAveragePrice - currentPrice;
+    const percentChange = currentPrice > 0 ? (diff / currentPrice) * 100 : 0;
+
+    return {
+      newAveragePrice,
+      diff,
+      percentChange,
+    };
+  }, [entries, unitId, formQuantity, formPrice, units, priceUnitConversionFactor, currentAveragePrice]);
 
   // Filter units by ingredient's measurementType
   const filteredUnits = useMemo(
@@ -103,6 +166,8 @@ export function EntriesSection({
     setUpdateAveragePrice(false);
     setNewSupplierName("");
     setShowNewSupplierInput(false);
+    setFormQuantity("");
+    setFormPrice("");
     setShowForm(true);
   }
 
@@ -198,6 +263,7 @@ export function EntriesSection({
                 ) : (
                   <div className="flex gap-2">
                     <Input
+                      ref={supplierInputRef}
                       value={newSupplierName}
                       onChange={(e) => setNewSupplierName(e.target.value)}
                       placeholder="Nome do fornecedor"
@@ -228,6 +294,8 @@ export function EntriesSection({
                   step="0.0001"
                   min="0.0001"
                   placeholder="1"
+                  value={formQuantity}
+                  onChange={(e) => setFormQuantity(e.target.value)}
                   required
                 />
               </div>
@@ -248,7 +316,7 @@ export function EntriesSection({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="unitPrice">Preço (R$) *</Label>
+                <Label htmlFor="unitPrice">Custo Total (R$) *</Label>
                 <Input
                   id="unitPrice"
                   name="unitPrice"
@@ -256,8 +324,13 @@ export function EntriesSection({
                   step="0.01"
                   min="0.01"
                   placeholder="0.00"
+                  value={formPrice}
+                  onChange={(e) => setFormPrice(e.target.value)}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Valor total pago pela quantidade informada
+                </p>
               </div>
             </div>
 
@@ -270,31 +343,65 @@ export function EntriesSection({
               />
             </div>
 
-            <div className="flex items-center space-x-2 p-3 bg-background rounded border">
-              <input
-                type="hidden"
-                name="updateAveragePrice"
-                value={updateAveragePrice ? "true" : "false"}
-              />
-              <Checkbox
-                id="updateAveragePrice"
-                checked={updateAveragePrice}
-                onCheckedChange={(checked) =>
-                  setUpdateAveragePrice(checked === true)
-                }
-              />
-              <label
-                htmlFor="updateAveragePrice"
-                className="text-sm cursor-pointer"
-              >
-                Usar este preço como novo preço médio (substitui o cálculo
-                automático)
-              </label>
+            {/* Price Preview & Average Price Option */}
+            <div className="p-3 bg-background rounded border space-y-3">
+              {pricePreview && (
+                <div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Novo custo médio: </span>
+                    <span className="font-medium">
+                      R$ {pricePreview.newAveragePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{priceUnitAbbreviation}
+                    </span>
+                    {pricePreview.diff !== 0 && (
+                      <span
+                        className={`ml-2 ${
+                          pricePreview.diff > 0
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        ({pricePreview.diff > 0 ? "+" : ""}
+                        {pricePreview.percentChange.toFixed(1)}%)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Custo atual: R$ {parseFloat(currentAveragePrice).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{priceUnitAbbreviation}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="hidden"
+                  name="updateAveragePrice"
+                  value={updateAveragePrice ? "true" : "false"}
+                />
+                <Checkbox
+                  id="updateAveragePrice"
+                  checked={updateAveragePrice}
+                  onCheckedChange={(checked) =>
+                    setUpdateAveragePrice(checked === true)
+                  }
+                />
+                <label
+                  htmlFor="updateAveragePrice"
+                  className="text-sm cursor-pointer"
+                >
+                  Usar este custo como novo custo médio (substitui o cálculo automático)
+                </label>
+              </div>
             </div>
 
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={loading}>
-                {loading ? "Salvando..." : "Salvar"}
+                {loading ? (
+                  <>
+                    <IconLoader2 className="w-4 h-4 mr-1 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar"
+                )}
               </Button>
               <Button
                 type="button"
@@ -310,7 +417,7 @@ export function EntriesSection({
 
         {entries.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            Nenhuma entrada cadastrada. Adicione compras para calcular o preço
+            Nenhuma entrada cadastrada. Adicione compras para calcular o custo
             médio automaticamente.
           </p>
         ) : (
@@ -318,37 +425,37 @@ export function EntriesSection({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 font-medium">Data</th>
-                  <th className="text-right py-2 font-medium">Qtd</th>
-                  <th className="text-right py-2 font-medium">Preço Unit.</th>
-                  <th className="text-right py-2 font-medium">Total</th>
-                  <th className="text-left py-2 font-medium">Fornecedor</th>
-                  <th className="py-2"></th>
+                  <th className="text-left py-2 pr-4 font-medium">Data</th>
+                  <th className="text-right py-2 px-4 font-medium">Qtd</th>
+                  <th className="text-right py-2 px-4 font-medium">Custo Unit.</th>
+                  <th className="text-right py-2 px-4 font-medium">Total</th>
+                  <th className="text-left py-2 px-4 font-medium">Fornecedor</th>
+                  <th className="py-2 pl-4"></th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((entry) => (
                   <tr key={entry.id} className="border-b">
-                    <td className="py-2">
+                    <td className="py-2 pr-4">
                       {new Date(entry.date + "T00:00:00").toLocaleDateString(
                         "pt-BR"
                       )}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="py-2 px-4 text-right">
                       {parseFloat(entry.quantity).toLocaleString("pt-BR")}{" "}
                       {entry.unitAbbreviation}
                     </td>
-                    <td className="py-2 text-right">
-                      R$ {parseFloat(entry.unitPrice).toFixed(2)}/
+                    <td className="py-2 px-4 text-right">
+                      R$ {parseFloat(entry.unitPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/
                       {entry.unitAbbreviation}
                     </td>
-                    <td className="py-2 text-right font-medium">
-                      R$ {parseFloat(entry.totalPrice).toFixed(2)}
+                    <td className="py-2 px-4 text-right font-medium">
+                      R$ {parseFloat(entry.totalPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 text-muted-foreground">
+                    <td className="py-2 px-4 text-muted-foreground">
                       {entry.supplierName || "-"}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="py-2 pl-4 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
@@ -364,7 +471,7 @@ export function EntriesSection({
                             <AlertDialogTitle>Excluir entrada</AlertDialogTitle>
                             <AlertDialogDescription>
                               Tem certeza que deseja excluir esta entrada? O
-                              preço médio será recalculado.
+                              custo médio será recalculado.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

@@ -158,7 +158,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
                       </p>
                     </div>
                     <p className="font-medium text-right ml-4">
-                      R$ {parseFloat(entry.totalPrice).toFixed(2)}
+                      R$ {parseFloat(entry.totalPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </Link>
                 ))}
@@ -205,7 +205,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
                       </p>
                     </div>
                     <p className="font-mono font-medium text-right ml-4">
-                      R$ {parseFloat(prod.baseCost).toFixed(2)}
+                      R$ {parseFloat(prod.baseCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </Link>
                 ))}
@@ -248,11 +248,11 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{rec.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        Porção: R$ {parseFloat(rec.costPerPortion).toFixed(2)}
+                        Porção: R$ {parseFloat(rec.costPerPortion).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                       </p>
                     </div>
                     <p className="font-mono font-medium text-right ml-4">
-                      R$ {parseFloat(rec.totalCost).toFixed(2)}
+                      R$ {parseFloat(rec.totalCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </Link>
                 ))}

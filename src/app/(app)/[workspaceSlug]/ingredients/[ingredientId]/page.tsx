@@ -23,7 +23,7 @@ export default async function IngredientDetailPage({
   }
 
   const [variations, entries] = await Promise.all([
-    ingredient.hasVariations ? getVariations(ingredientId) : Promise.resolve([]),
+    getVariations(ingredientId),
     getEntries(ingredientId),
   ]);
 
@@ -37,12 +37,20 @@ export default async function IngredientDetailPage({
           <IconArrowLeft className="w-4 h-4 mr-1" />
           Voltar para insumos
         </Link>
-        <Button variant="outline" asChild>
-          <Link href={`/${workspaceSlug}/ingredients/${ingredientId}/edit`}>
-            <IconPencil className="w-4 h-4 mr-2" />
-            Editar
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/${workspaceSlug}/ingredients/${ingredientId}/edit`}>
+              <IconPencil className="w-4 h-4 mr-2" />
+              Editar
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href={`/${workspaceSlug}/ingredients/new`}>
+              <IconPlus className="w-4 h-4 mr-2" />
+              Novo Insumo
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -59,15 +67,15 @@ export default async function IngredientDetailPage({
                   {ingredient.categoryName && (
                     <Badge variant="secondary">{ingredient.categoryName}</Badge>
                   )}
-                  {ingredient.hasVariations && (
-                    <Badge>Com variações</Badge>
+                  {variations.length > 0 && (
+                    <Badge>{variations.length} variação{variations.length > 1 ? "ões" : ""}</Badge>
                   )}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-sm text-muted-foreground">Preço médio</div>
+                <div className="text-sm text-muted-foreground">Custo médio</div>
                 <div className="text-2xl font-bold">
-                  R$ {parseFloat(ingredient.averagePrice).toFixed(2)}
+                  R$ {parseFloat(ingredient.averagePrice).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   por {ingredient.priceUnitAbbreviation}
@@ -76,7 +84,7 @@ export default async function IngredientDetailPage({
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Custo base: R$ {parseFloat(ingredient.baseCostPerUnit).toFixed(4)}/
+                  Custo base: R$ {parseFloat(ingredient.baseCostPerUnit).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}/
                   {ingredient.measurementType === "weight" ? "g" : ingredient.measurementType === "volume" ? "ml" : "un"}
                 </div>
               </div>
@@ -85,14 +93,14 @@ export default async function IngredientDetailPage({
         </Card>
 
         {/* Variations */}
-        {ingredient.hasVariations && (
-          <VariationsSection
-            workspaceSlug={workspaceSlug}
-            ingredientId={ingredientId}
-            variations={variations}
-            measurementType={ingredient.measurementType}
-          />
-        )}
+        <VariationsSection
+          workspaceSlug={workspaceSlug}
+          ingredientId={ingredientId}
+          variations={variations}
+          measurementType={ingredient.measurementType}
+          priceUnitAbbreviation={ingredient.priceUnitAbbreviation}
+          priceUnitConversionFactor={ingredient.priceUnitConversionFactor}
+        />
 
         {/* Entries */}
         <EntriesSection
@@ -100,6 +108,9 @@ export default async function IngredientDetailPage({
           ingredientId={ingredientId}
           entries={entries}
           measurementType={ingredient.measurementType}
+          currentAveragePrice={ingredient.averagePrice}
+          priceUnitAbbreviation={ingredient.priceUnitAbbreviation}
+          priceUnitConversionFactor={ingredient.priceUnitConversionFactor}
         />
       </div>
     </div>

@@ -4,7 +4,7 @@ import { getRecipe, getRecipeItems, getRecipeSteps } from "@/actions/recipes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { IconArrowLeft, IconPencil, IconClock } from "@tabler/icons-react";
+import { IconArrowLeft, IconPencil, IconClock, IconPlus } from "@tabler/icons-react";
 import { RecipeItemsSection } from "./items-section";
 import { RecipeStepsSection } from "./steps-section";
 
@@ -35,12 +35,20 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
           <IconArrowLeft className="w-4 h-4 mr-1" />
           Voltar para receitas
         </Link>
-        <Button variant="outline" asChild>
-          <Link href={`/${workspaceSlug}/recipes/${recipeId}/edit`}>
-            <IconPencil className="w-4 h-4 mr-2" />
-            Editar
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/${workspaceSlug}/recipes/${recipeId}/edit`}>
+              <IconPencil />
+              Editar
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href={`/${workspaceSlug}/recipes/new`}>
+              <IconPlus />
+              Nova Receita
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -72,12 +80,28 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
               <div className="text-right">
                 <div className="text-sm text-muted-foreground">Custo total</div>
                 <div className="text-2xl font-bold">
-                  R$ {parseFloat(recipe.totalCost).toFixed(2)}
+                  R$ {parseFloat(recipe.totalCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  R$ {parseFloat(recipe.costPerPortion).toFixed(2)} por{" "}
+                  R$ {parseFloat(recipe.costPerPortion).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} por{" "}
                   {recipe.yieldUnitAbbreviation}
                 </div>
+                {recipe.yieldUnitConversionFactor &&
+                  parseFloat(recipe.yieldUnitConversionFactor) !== 1 && (
+                    <div className="text-sm text-muted-foreground">
+                      R${" "}
+                      {(
+                        parseFloat(recipe.costPerPortion) /
+                        parseFloat(recipe.yieldUnitConversionFactor)
+                      ).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}{" "}
+                      por{" "}
+                      {recipe.yieldUnitMeasurementType === "weight"
+                        ? "g"
+                        : recipe.yieldUnitMeasurementType === "volume"
+                          ? "ml"
+                          : "un"}
+                    </div>
+                  )}
               </div>
             </div>
           </CardContent>

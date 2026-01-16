@@ -6,6 +6,7 @@ import Link from "next/link";
 import { deleteRecipe } from "@/actions/recipes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { IconEye, IconPencil, IconTrash, IconClock } from "@tabler/icons-react";
+import { IconEye, IconPencil, IconTrash, IconClock, IconLoader2 } from "@tabler/icons-react";
 
 interface Recipe {
   id: string;
@@ -38,16 +39,22 @@ export function RecipesTable({ workspaceSlug, recipes }: RecipesTableProps) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingName, setDeletingName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function handleDelete() {
     if (!deletingId) return;
 
-    const result = await deleteRecipe(workspaceSlug, deletingId);
-    if (result.error) {
-      alert(result.error);
+    setIsDeleting(true);
+    try {
+      const result = await deleteRecipe(workspaceSlug, deletingId);
+      if (result.error) {
+        alert(result.error);
+      }
+      setDeletingId(null);
+      router.refresh();
+    } finally {
+      setIsDeleting(false);
     }
-    setDeletingId(null);
-    router.refresh();
   }
 
   function openDeleteDialog(rec: Recipe) {
@@ -80,7 +87,12 @@ export function RecipesTable({ workspaceSlug, recipes }: RecipesTableProps) {
                       style={{ backgroundColor: rec.categoryColor }}
                     />
                   )}
-                  <span className="font-medium">{rec.name}</span>
+                  <Link
+                    href={`/${workspaceSlug}/recipes/${rec.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {rec.name}
+                  </Link>
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">
@@ -100,7 +112,7 @@ export function RecipesTable({ workspaceSlug, recipes }: RecipesTableProps) {
                 )}
               </td>
               <td className="px-4 py-3 text-right font-mono">
-                R$ {parseFloat(rec.costPerPortion).toFixed(2)}
+                R$ {formatCurrency(rec.costPerPortion, 4)}/{rec.yieldUnitAbbreviation}
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="inline-flex">
@@ -139,12 +151,20 @@ export function RecipesTable({ workspaceSlug, recipes }: RecipesTableProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
+              disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700"
             >
-              Excluir
+              {isDeleting ? (
+                <>
+                  <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

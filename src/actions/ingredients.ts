@@ -54,7 +54,7 @@ export async function getIngredients(workspaceSlug: string, filters?: Ingredient
   const total = totalResult[0]?.count || 0;
 
   // Get paginated results
-  const ingredients = await db
+  const ingredientsData = await db
     .select({
       id: ingredient.id,
       name: ingredient.name,
@@ -80,6 +80,33 @@ export async function getIngredients(workspaceSlug: string, filters?: Ingredient
     .orderBy(asc(ingredient.name))
     .limit(perPage)
     .offset(offset);
+
+  // Get variation names for ingredients that have variations
+  const ingredientIds = ingredientsData.filter(i => i.hasVariations).map(i => i.id);
+  let variationsMap: Record<string, string[]> = {};
+
+  if (ingredientIds.length > 0) {
+    const variations = await db
+      .select({
+        ingredientId: ingredientVariation.ingredientId,
+        name: ingredientVariation.name,
+      })
+      .from(ingredientVariation)
+      .where(sql`${ingredientVariation.ingredientId} IN (${sql.join(ingredientIds.map(id => sql`${id}`), sql`, `)})`);
+
+    variationsMap = variations.reduce((acc, v) => {
+      if (!acc[v.ingredientId]) {
+        acc[v.ingredientId] = [];
+      }
+      acc[v.ingredientId].push(v.name);
+      return acc;
+    }, {} as Record<string, string[]>);
+  }
+
+  const ingredients = ingredientsData.map(i => ({
+    ...i,
+    variationNames: variationsMap[i.id] || [],
+  }));
 
   return {
     ingredients,
@@ -145,7 +172,6 @@ export async function createIngredient(workspaceSlug: string, formData: FormData
   const priceUnitId = formData.get("priceUnitId") as string;
   const priceQuantity = formData.get("priceQuantity") as string;
   const priceValue = formData.get("averagePrice") as string;
-  const hasVariations = formData.get("hasVariations") === "true";
 
   if (!name || !measurementType || !priceUnitId) {
     return { error: "Nome, tipo de medida e unidade são obrigatórios" };
@@ -183,7 +209,7 @@ export async function createIngredient(workspaceSlug: string, formData: FormData
     averagePrice: averagePrice.toFixed(4),
     baseCostPerUnit: baseCostPerUnit.toFixed(6),
     averagePriceManual: totalPrice > 0,
-    hasVariations,
+    hasVariations: false,
   });
 
   revalidatePath(`/${workspaceSlug}/ingredients`);
@@ -209,7 +235,6 @@ export async function updateIngredient(
   const priceUnitId = formData.get("priceUnitId") as string;
   const priceQuantity = formData.get("priceQuantity") as string | null;
   const priceValue = formData.get("averagePrice") as string | null;
-  const hasVariations = formData.get("hasVariations") === "true";
 
   if (!name || !measurementType || !priceUnitId) {
     return { error: "Nome, tipo de medida e unidade são obrigatórios" };
@@ -227,7 +252,6 @@ export async function updateIngredient(
     categoryId: categoryId || null,
     measurementType,
     priceUnitId,
-    hasVariations,
     updatedAt: new Date(),
   };
 
@@ -376,6 +400,12 @@ export async function createVariation(
     calculatedCost: calculatedCost.toFixed(4),
   });
 
+  // Auto-update hasVariations flag
+  await db
+    .update(ingredient)
+    .set({ hasVariations: true })
+    .where(eq(ingredient.id, ingredientId));
+
   revalidatePath(`/${workspaceSlug}/ingredients/${ingredientId}`);
   return { success: true, id };
 }
@@ -442,6 +472,21 @@ export async function deleteVariation(
 
     await db.delete(ingredientVariation).where(eq(ingredientVariation.id, variationId));
 
+    // Check if there are any remaining variations
+    const remainingVariations = await db
+      .select({ id: ingredientVariation.id })
+      .from(ingredientVariation)
+      .where(eq(ingredientVariation.ingredientId, ingredientId))
+      .limit(1);
+
+    // Auto-update hasVariations flag
+    if (remainingVariations.length === 0) {
+      await db
+        .update(ingredient)
+        .set({ hasVariations: false })
+        .where(eq(ingredient.id, ingredientId));
+    }
+
     revalidatePath(`/${workspaceSlug}/ingredients/${ingredientId}`);
     return { success: true };
   } catch {
@@ -503,8 +548,8 @@ export async function createEntry(
   }
 
   const qty = parseFloat(quantity);
-  const price = parseFloat(unitPrice);
-  const totalPrice = qty * price;
+  const totalPriceValue = parseFloat(unitPrice); // unitPrice field contains total price
+  const calculatedUnitPrice = qty > 0 ? totalPriceValue / qty : 0;
 
   const id = generateId("ent");
 
@@ -514,8 +559,8 @@ export async function createEntry(
     date,
     quantity,
     unitId,
-    unitPrice,
-    totalPrice: totalPrice.toFixed(4),
+    unitPrice: calculatedUnitPrice.toFixed(4),
+    totalPrice: totalPriceValue.toFixed(4),
     supplierId: supplierId || null,
     observation: observation?.trim() || null,
   });
@@ -529,10 +574,10 @@ export async function createEntry(
       const priceUnitConversionFactor = parseFloat(ing.priceUnitConversionFactor || "1");
 
       // Convert entry price to ingredient's price unit
-      // entryPrice is per entryUnit, we need to convert to per priceUnit
-      // price per base = entryPrice / entryConversionFactor
+      // calculatedUnitPrice is per entryUnit, we need to convert to per priceUnit
+      // price per base = unitPrice / entryConversionFactor
       // price per priceUnit = pricePerBase * priceUnitConversionFactor
-      const pricePerBase = price / entryConversionFactor;
+      const pricePerBase = calculatedUnitPrice / entryConversionFactor;
       const newAveragePrice = pricePerBase * priceUnitConversionFactor;
 
       const baseCostPerUnit = newAveragePrice / priceUnitConversionFactor;

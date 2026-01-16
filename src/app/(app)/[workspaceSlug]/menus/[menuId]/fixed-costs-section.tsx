@@ -140,7 +140,7 @@ export function FixedCostsSection({
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xl font-bold">R$ {totalMonthlyFixedCost.toFixed(2)}</div>
+                <div className="text-xl font-bold">R$ {totalMonthlyFixedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 <Link
                   href={`/${workspaceSlug}/fixed-costs`}
                   className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
@@ -163,7 +163,7 @@ export function FixedCostsSection({
                       {apportionmentType === "percentage_of_sale" &&
                         `${parseFloat(apportionmentValue || "0")}% do preço de venda`}
                       {apportionmentType === "fixed_per_product" &&
-                        `R$ ${parseFloat(apportionmentValue || "0").toFixed(2)} por produto`}
+                        `R$ ${parseFloat(apportionmentValue || "0").toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por produto`}
                       {apportionmentType === "proportional_to_sales" &&
                         `${Math.round(parseFloat(apportionmentValue || "0"))} vendas estimadas/mês`}
                     </div>
@@ -195,7 +195,7 @@ export function FixedCostsSection({
             <div className="py-4 space-y-4">
               <div className="p-3 bg-muted/50 rounded-lg">
                 <div className="text-sm text-muted-foreground">Total mensal de custos fixos</div>
-                <div className="text-xl font-bold">R$ {totalMonthlyFixedCost.toFixed(2)}</div>
+                <div className="text-xl font-bold">R$ {totalMonthlyFixedCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               </div>
 
               <div className="space-y-2">
@@ -263,8 +263,9 @@ export function FixedCostsSection({
                   totalMonthlyFixedCost > 0 && (
                     <p className="text-sm text-blue-600">
                       Custo por produto: R${" "}
-                      {(totalMonthlyFixedCost / parseInt(selectedValue || "1")).toFixed(
-                        2
+                      {(totalMonthlyFixedCost / parseInt(selectedValue || "1")).toLocaleString(
+                        "pt-BR",
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                       )}
                     </p>
                   )}

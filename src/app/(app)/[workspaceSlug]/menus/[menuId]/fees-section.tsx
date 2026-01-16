@@ -228,7 +228,7 @@ export function MenuFeesSection({
                   <div className="text-right mr-2">
                     <div className="font-medium">
                       {fee.type === "fixed" ? "R$ " : ""}
-                      {parseFloat(fee.value).toFixed(2)}
+                      {parseFloat(fee.value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       {fee.type === "percentage" ? "%" : ""}
                     </div>
                   </div>
@@ -283,10 +283,10 @@ export function MenuFeesSection({
                     return (
                       <div className="flex items-center gap-2">
                         {totalFixed > 0 && (
-                          <span className="font-medium">R$ {totalFixed.toFixed(2)} +</span>
+                          <span className="font-medium">R$ {totalFixed.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} +</span>
                         )}
                         {totalPercentage > 0 && (
-                          <span className="font-medium">{totalPercentage.toFixed(2)}%</span>
+                          <span className="font-medium">{totalPercentage.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span>
                         )}
                       </div>
                     );

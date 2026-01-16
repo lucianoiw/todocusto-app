@@ -110,6 +110,8 @@ export async function getRecipe(workspaceSlug: string, recipeId: string) {
       yieldUnitId: recipe.yieldUnitId,
       yieldUnitName: unit.name,
       yieldUnitAbbreviation: unit.abbreviation,
+      yieldUnitConversionFactor: unit.conversionFactor,
+      yieldUnitMeasurementType: unit.measurementType,
       prepTime: recipe.prepTime,
       tags: recipe.tags,
       allergens: recipe.allergens,

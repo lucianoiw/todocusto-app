@@ -132,7 +132,7 @@ export function IngredientForm({ workspaceSlug, categories, units }: IngredientF
       {measurementType && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="priceUnitId">Unidade do preço *</Label>
+            <Label htmlFor="priceUnitId">Unidade do custo *</Label>
             <Select
               name="priceUnitId"
               value={priceUnitId}
@@ -153,7 +153,7 @@ export function IngredientForm({ workspaceSlug, categories, units }: IngredientF
           </div>
 
           <div className="space-y-2">
-            <Label>Preço (opcional)</Label>
+            <Label>Custo (opcional)</Label>
             <div className="flex items-center gap-2">
               <Input
                 id="priceQuantity"
@@ -183,19 +183,6 @@ export function IngredientForm({ workspaceSlug, categories, units }: IngredientF
           </div>
         </div>
       )}
-
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="hasVariations"
-          name="hasVariations"
-          value="true"
-          className="rounded"
-        />
-        <Label htmlFor="hasVariations" className="cursor-pointer">
-          Este insumo possui variações (ex: fatiado, ralado)
-        </Label>
-      </div>
 
       <div className="flex gap-3 pt-4">
         <Button type="submit" disabled={loading}>
