@@ -8,7 +8,7 @@ import {
 import { relations } from "drizzle-orm";
 import { workspace } from "./workspace";
 import { category } from "./categories";
-import { unit } from "./units";
+import { unit, measurementTypeEnum } from "./units";
 
 export const ingredient = pgTable("ingredient", {
   id: text("id").primaryKey(),
@@ -20,10 +20,19 @@ export const ingredient = pgTable("ingredient", {
   categoryId: text("category_id").references(() => category.id, {
     onDelete: "set null",
   }),
-  baseUnitId: text("base_unit_id")
+  // Tipo de medida: peso (weight), líquido (volume) ou unidade (unit)
+  measurementType: measurementTypeEnum("measurement_type").notNull(),
+  // Unidade usada para o preço (ex: kg, L, un)
+  priceUnitId: text("price_unit_id")
     .notNull()
     .references(() => unit.id),
+  // Preço por priceUnit (ex: R$50/kg)
   averagePrice: decimal("average_price", { precision: 15, scale: 4 })
+    .notNull()
+    .default("0"),
+  // Custo calculado por unidade base (g, ml, un)
+  // = averagePrice / conversionFactor da priceUnit
+  baseCostPerUnit: decimal("base_cost_per_unit", { precision: 15, scale: 6 })
     .notNull()
     .default("0"),
   averagePriceManual: boolean("average_price_manual").notNull().default(false),
@@ -63,8 +72,8 @@ export const ingredientRelations = relations(ingredient, ({ one, many }) => ({
     fields: [ingredient.categoryId],
     references: [category.id],
   }),
-  baseUnit: one(unit, {
-    fields: [ingredient.baseUnitId],
+  priceUnit: one(unit, {
+    fields: [ingredient.priceUnitId],
     references: [unit.id],
   }),
   variations: many(ingredientVariation),

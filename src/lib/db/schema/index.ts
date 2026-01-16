@@ -10,6 +10,9 @@ export * from "./units";
 // Categories
 export * from "./categories";
 
+// Suppliers
+export * from "./suppliers";
+
 // Ingredients
 export * from "./ingredients";
 

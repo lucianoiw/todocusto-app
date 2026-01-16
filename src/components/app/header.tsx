@@ -1,18 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { signOut } from "@/lib/auth-client";
+import { usePathname } from "next/navigation";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { IconChevronDown, IconLogout, IconBuilding, IconUser } from "@tabler/icons-react";
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 
 interface HeaderProps {
   workspace: {
@@ -27,61 +23,44 @@ interface HeaderProps {
   };
 }
 
-export function Header({ workspace, user }: HeaderProps) {
-  const router = useRouter();
+const pageNames: Record<string, string> = {
+  "": "Início",
+  "ingredients": "Insumos",
+  "recipes": "Receitas",
+  "products": "Produtos",
+  "menus": "Cardápios",
+  "suppliers": "Fornecedores",
+  "units": "Unidades",
+  "categories": "Categorias",
+  "fixed-costs": "Custos Fixos",
+  "settings": "Configurações",
+  "new": "Novo",
+  "edit": "Editar",
+};
 
-  async function handleSignOut() {
-    await signOut();
-    router.push("/login");
-  }
+export function Header({ workspace }: HeaderProps) {
+  const pathname = usePathname();
+  const pathParts = pathname.split("/").filter(Boolean);
+
+  // Remove workspace slug from path
+  const relevantParts = pathParts.slice(1);
+
+  // Get the current page name
+  const currentPage = relevantParts[0] || "";
+  const pageName = pageNames[currentPage] || currentPage;
 
   return (
-    <header className="h-16 bg-white border-b px-4 flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <Link href="/" className="font-semibold text-lg">
-          TodoCusto
-        </Link>
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
+      <SidebarTrigger className="-ml-1" />
+      <Separator orientation="vertical" className="mr-2 h-4" />
 
-        <span className="text-gray-300">/</span>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2">
-              <IconBuilding className="w-4 h-4" />
-              {workspace.name}
-              <IconChevronDown className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Trocar negócio</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/">Ver todos os negócios</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/new">Criar novo negócio</Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="gap-2">
-            <IconUser className="w-4 h-4" />
-            {user.name}
-            <IconChevronDown className="w-4 h-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
-            <IconLogout className="w-4 h-4 mr-2" />
-            Sair
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{pageName}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
     </header>
   );
 }

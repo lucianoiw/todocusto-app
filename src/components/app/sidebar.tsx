@@ -2,92 +2,162 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/utils";
 import {
   IconHome,
   IconRuler,
   IconTags,
-  IconCarrot,
+  IconBox,
   IconToolsKitchen2,
   IconPackage,
   IconReceipt,
   IconCoin,
+  IconTruck,
   IconSettings,
 } from "@tabler/icons-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  SidebarSeparator,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { WorkspaceSwitcher } from "./workspace-switcher";
+import { NavUser } from "./nav-user";
 
-interface SidebarProps {
-  workspaceSlug: string;
+interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
 }
 
-const navigation = [
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface AppSidebarProps {
+  workspaceSlug: string;
+  workspaces: Workspace[];
+  currentWorkspace: Workspace;
+  user: User;
+}
+
+const mainNav = [
   { name: "Início", href: "", icon: IconHome },
-  { name: "Unidades", href: "/units", icon: IconRuler },
-  { name: "Categorias", href: "/categories", icon: IconTags },
-  { name: "Ingredientes", href: "/ingredients", icon: IconCarrot },
+  { name: "Insumos", href: "/ingredients", icon: IconBox },
   { name: "Receitas", href: "/recipes", icon: IconToolsKitchen2 },
   { name: "Produtos", href: "/products", icon: IconPackage },
-  { name: "Cardápios", href: "/menus", icon: IconReceipt },
   { name: "Custos Fixos", href: "/fixed-costs", icon: IconCoin },
+  { name: "Cardápios", href: "/menus", icon: IconReceipt },
 ];
 
 const settingsNav = [
+  { name: "Fornecedores", href: "/suppliers", icon: IconTruck },
+  { name: "Unidades", href: "/units", icon: IconRuler },
+  { name: "Categorias", href: "/categories", icon: IconTags },
   { name: "Configurações", href: "/settings", icon: IconSettings },
 ];
 
-export function Sidebar({ workspaceSlug }: SidebarProps) {
+export function AppSidebar({
+  workspaceSlug,
+  workspaces,
+  currentWorkspace,
+  user,
+}: AppSidebarProps) {
   const pathname = usePathname();
   const basePath = `/${workspaceSlug}`;
+  const { setOpenMobile } = useSidebar();
+
+  const handleNavigate = () => {
+    setOpenMobile(false);
+  };
 
   return (
-    <aside className="w-64 min-h-[calc(100vh-65px)] bg-white border-r">
-      <nav className="p-4 space-y-1">
-        {navigation.map((item) => {
-          const href = `${basePath}${item.href}`;
-          const isActive =
-            item.href === ""
-              ? pathname === basePath
-              : pathname.startsWith(href);
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          currentWorkspace={currentWorkspace}
+        />
+      </SidebarHeader>
 
-          return (
-            <Link
-              key={item.name}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.name}
-            </Link>
-          );
-        })}
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Principal</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainNav.map((item) => {
+                const href = `${basePath}${item.href}`;
+                const isActive =
+                  item.href === ""
+                    ? pathname === basePath
+                    : pathname.startsWith(href);
 
-        <div className="pt-4 mt-4 border-t">
-          {settingsNav.map((item) => {
-            const href = `${basePath}${item.href}`;
-            const isActive = pathname.startsWith(href);
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      onClick={handleNavigate}
+                      tooltip={item.name}
+                    >
+                      <Link href={href}>
+                        <item.icon />
+                        <span>{item.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-            return (
-              <Link
-                key={item.name}
-                href={href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                )}
-              >
-                <item.icon className="w-5 h-5" />
-                {item.name}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </aside>
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Configurações</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsNav.map((item) => {
+                const href = `${basePath}${item.href}`;
+                const isActive = pathname.startsWith(href);
+
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      onClick={handleNavigate}
+                      tooltip={item.name}
+                    >
+                      <Link href={href}>
+                        <item.icon />
+                        <span>{item.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <NavUser user={user} />
+      </SidebarFooter>
+
+      <SidebarRail />
+    </Sidebar>
   );
 }

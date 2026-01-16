@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { IconArrowLeft } from "@tabler/icons-react";
+import { HomeHeader } from "@/components/app/home-header";
 
 export default async function NewWorkspacePage() {
   const session = await getSession();
@@ -16,21 +17,26 @@ export default async function NewWorkspacePage() {
     redirect("/login");
   }
 
+  async function handleSubmit(formData: FormData) {
+    "use server";
+    await createWorkspace(formData);
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="max-w-2xl mx-auto px-4 py-4">
+    <div className="min-h-screen bg-muted/40">
+      <HomeHeader user={session.user} />
+
+      <main className="max-w-2xl mx-auto px-4 py-8">
+        <div className="mb-6">
           <Link
             href="/"
-            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
           >
             <IconArrowLeft className="w-4 h-4 mr-1" />
             Voltar
           </Link>
         </div>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
         <Card>
           <CardHeader>
             <CardTitle>Novo Negócio</CardTitle>
@@ -39,7 +45,7 @@ export default async function NewWorkspacePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={createWorkspace} className="space-y-4">
+            <form action={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome do negócio *</Label>
                 <Input

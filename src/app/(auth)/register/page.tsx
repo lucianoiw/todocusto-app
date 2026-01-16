@@ -54,7 +54,7 @@ export default function RegisterPage() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
               {error}
             </div>
           )}
@@ -94,7 +94,7 @@ export default function RegisterPage() {
               required
               minLength={8}
             />
-            <p className="text-xs text-gray-500">Mínimo de 8 caracteres</p>
+            <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres</p>
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
@@ -102,7 +102,7 @@ export default function RegisterPage() {
           </Button>
         </form>
 
-        <div className="mt-4 text-center text-sm text-gray-600">
+        <div className="mt-4 text-center text-sm text-muted-foreground">
           Já tem uma conta?{" "}
           <Link href="/login" className="text-blue-600 hover:underline">
             Entrar

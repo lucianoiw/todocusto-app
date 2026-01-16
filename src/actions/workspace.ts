@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import { workspace, workspaceMember } from "@/lib/db/schema";
 import { requireSession } from "@/lib/session";
 import { generateId, generateSlug } from "@/lib/utils/id";
+import { seedStandardUnits } from "./units";
+import { seedStandardCategories } from "./categories";
 
 export async function createWorkspace(formData: FormData) {
   const session = await requireSession();
@@ -43,6 +45,10 @@ export async function createWorkspace(formData: FormData) {
     userId: session.user.id,
     role: "owner",
   });
+
+  // Seed standard units and categories for new workspace
+  await seedStandardUnits(id);
+  await seedStandardCategories(id);
 
   revalidatePath("/");
   redirect(`/${slug}`);

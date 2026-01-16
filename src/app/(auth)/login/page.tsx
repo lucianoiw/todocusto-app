@@ -50,7 +50,7 @@ export default function LoginPage() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-500/10 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
               {error}
             </div>
           )}
@@ -84,7 +84,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="mt-4 text-center text-sm text-gray-600">
+        <div className="mt-4 text-center text-sm text-muted-foreground">
           Não tem uma conta?{" "}
           <Link href="/register" className="text-blue-600 hover:underline">
             Criar conta
