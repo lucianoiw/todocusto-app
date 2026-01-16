@@ -13,6 +13,7 @@ import {
   IconCoin,
   IconTruck,
   IconSettings,
+  IconChartLine,
 } from "@tabler/icons-react";
 import {
   Sidebar,
@@ -58,6 +59,7 @@ const mainNav = [
   { name: "Produtos", href: "/products", icon: IconPackage },
   { name: "Custos Fixos", href: "/fixed-costs", icon: IconCoin },
   { name: "Cardápios", href: "/menus", icon: IconReceipt },
+  { name: "Simulador", href: "/simulator", icon: IconChartLine },
 ];
 
 const settingsNav = [
