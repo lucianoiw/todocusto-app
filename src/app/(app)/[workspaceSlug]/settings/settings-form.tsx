@@ -15,9 +15,10 @@ interface SettingsFormProps {
     slug: string;
     description: string | null;
   };
+  appUrl: string;
 }
 
-export function SettingsForm({ workspace }: SettingsFormProps) {
+export function SettingsForm({ workspace, appUrl }: SettingsFormProps) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
@@ -66,7 +67,7 @@ export function SettingsForm({ workspace }: SettingsFormProps) {
       <div className="space-y-2">
         <Label>URL do Negócio</Label>
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">todocusto.com/</span>
+          <span className="text-muted-foreground text-sm">{appUrl}/</span>
           <Input
             value={workspace.slug}
             disabled

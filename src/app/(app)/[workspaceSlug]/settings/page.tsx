@@ -36,7 +36,10 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SettingsForm workspace={workspace} />
+          <SettingsForm
+            workspace={workspace}
+            appUrl={process.env.APP_URL || "todocusto.com"}
+          />
         </CardContent>
       </Card>
     </div>
