@@ -23,7 +23,11 @@ src/
 │   ├── categories.ts  # CRUD categorias
 │   ├── ingredients.ts # CRUD ingredientes + variações + entradas
 │   ├── recipes.ts     # CRUD receitas + itens + passos
-│   └── products.ts    # CRUD produtos + composição
+│   ├── products.ts    # CRUD produtos + composição
+│   ├── menus.ts       # CRUD cardápios + produtos + taxas
+│   ├── fixed-costs.ts # CRUD custos fixos
+│   ├── suppliers.ts   # CRUD fornecedores
+│   └── dashboard.ts   # Dados do dashboard
 ├── app/
 │   ├── (auth)/        # Rotas públicas (login, register)
 │   ├── (app)/         # Rotas protegidas
@@ -32,12 +36,20 @@ src/
 │   │       ├── categories/
 │   │       ├── ingredients/
 │   │       ├── recipes/
-│   │       └── products/
+│   │       ├── products/
+│   │       ├── menus/
+│   │       ├── fixed-costs/
+│   │       ├── suppliers/
+│   │       └── settings/
 │   └── api/auth/      # API routes do better-auth
-├── components/ui/     # Componentes shadcn/ui
+├── components/
+│   ├── ui/            # Componentes shadcn/ui
+│   ├── theme-provider.tsx  # Provider para dark mode
+│   └── mode-toggle.tsx     # Toggle dark/light mode
 ├── lib/
 │   ├── auth.ts        # Configuração better-auth
 │   ├── auth-client.ts # Cliente auth para React
+│   ├── utils.ts       # Funções utilitárias (formatCurrency, formatNumber, etc)
 │   └── db/
 │       ├── index.ts   # Conexão Drizzle + Neon
 │       └── schema/    # Schemas do banco
@@ -75,12 +87,16 @@ src/
 - `product` - produtos vendáveis
 - `productComposition` - composição do produto
 
-### Cardápios (Fase 2 - não implementado)
-- `menu` - cardápios
-- `menuFee` - taxas (cartão, delivery, impostos)
-- `fixedCost` - custos fixos (aluguel, energia)
-- `menuFixedCost` - custos fixos associados ao cardápio
-- `menuProduct` - produtos no cardápio com preço de venda
+### Cardápios
+- `menu` - cardápios com margem de lucro alvo
+- `menuFee` - taxas (cartão, delivery, impostos) em percentual
+- `fixedCost` - custos fixos globais (aluguel, energia, salários)
+- `menuFixedCost` - custos fixos associados ao cardápio com rateio
+- `menuProduct` - produtos no cardápio com:
+  - `sellingPrice`: preço de venda
+  - `calculatedCost`: custo base do produto
+  - `marginPercent`: margem calculada
+  - Simulador de preço sugerido
 
 ## Sistema de Custos
 
@@ -145,18 +161,26 @@ custoBase = Σ(custoItem × quantidade × conversionFactor)
 - [x] Produtos (CRUD)
 - [x] Composição de produto (ingredientes, variações, receitas, outros produtos)
 
-### ⏳ Fase 2 - Cardápios
-- [ ] CRUD de cardápios
-- [ ] Custos fixos (aluguel, energia, salários)
-- [ ] Taxas (cartão, delivery, impostos)
-- [ ] Produtos no cardápio com preço de venda
-- [ ] Cálculo de preço final com margem
-- [ ] Rateio de custos fixos
+### ✅ Fase 2 - Cardápios - Concluída
+- [x] CRUD de cardápios
+- [x] Custos fixos globais (aluguel, energia, salários)
+- [x] Taxas percentuais (cartão, delivery, impostos)
+- [x] Produtos no cardápio com preço de venda
+- [x] Cálculo de margem por produto
+- [x] Rateio de custos fixos por cardápio
+- [x] Simulador de preço sugerido (calcula preço para manter margem alvo)
 
-### 🔮 Fase 3 - Relatórios
+### ✅ UX/UI - Concluída
+- [x] Dark mode (toggle light/dark)
+- [x] Formatação brasileira de moeda (vírgula como decimal)
+- [x] Select com busca para itens (combobox)
+- [x] Filtro de unidades por tipo de medida
+- [x] Links clicáveis em nomes de produtos/receitas
+- [x] Layout consistente entre tabelas
+
+### ⏳ Fase 3 - Relatórios
 - [ ] Dashboard com métricas
 - [ ] Comparativo de custos
-- [ ] Simulações de preço
 - [ ] Exportação PDF/Excel
 
 ### 🔧 Melhorias Pendentes
@@ -197,3 +221,8 @@ BETTER_AUTH_URL="http://localhost:3000"
 - **Server Actions**: Retornam `{ success: true }` ou `{ error: "mensagem" }`
 - **Formulários**: Usam `action={serverAction}` com FormData
 - **Componentes cliente**: Marcados com `"use client"` no topo
+- **Formatação de moeda**:
+  - Usar `toLocaleString("pt-BR")` ou funções de `@/lib/utils`
+  - Preços normais: 2 casas decimais (R$ 10,50)
+  - Custos por porção/unidade: 4 casas decimais (R$ 0,0525)
+  - Sempre vírgula como separador decimal
