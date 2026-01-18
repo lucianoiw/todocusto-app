@@ -3,6 +3,8 @@ import { getWorkspaceBySlug } from "@/actions/workspace";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { IconSettings } from "@tabler/icons-react";
 import { SettingsForm } from "./settings-form";
+import { LaborCostForm } from "./labor-cost-form";
+import { DangerZone } from "./danger-zone";
 
 interface SettingsPageProps {
   params: Promise<{ workspaceSlug: string }>;
@@ -42,6 +44,29 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           />
         </CardContent>
       </Card>
+
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>Custo de Mão de Obra</CardTitle>
+          <CardDescription>
+            Configure o custo por hora de trabalho para calcular automaticamente o custo de mão de obra nas receitas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LaborCostForm
+            workspaceSlug={workspaceSlug}
+            currentLaborCost={workspace.laborCostPerHour}
+            currentMonthlyHours={workspace.monthlyWorkHours}
+          />
+        </CardContent>
+      </Card>
+
+      {workspace.role === "owner" && (
+        <DangerZone
+          workspaceId={workspace.id}
+          workspaceName={workspace.name}
+        />
+      )}
     </div>
   );
 }

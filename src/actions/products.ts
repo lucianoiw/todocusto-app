@@ -11,6 +11,8 @@ import {
   ingredient,
   ingredientVariation,
   recipe,
+  sizeGroup,
+  sizeOption,
 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/session";
 import { getWorkspaceBySlug } from "./workspace";
@@ -71,12 +73,16 @@ export async function getProducts(workspaceSlug: string, filters?: ProductsFilte
       categoryId: product.categoryId,
       categoryName: category.name,
       categoryColor: category.color,
+      sizeGroupId: product.sizeGroupId,
+      sizeGroupName: sizeGroup.name,
       baseCost: product.baseCost,
+      availableForSale: product.availableForSale,
       active: product.active,
       createdAt: product.createdAt,
     })
     .from(product)
     .leftJoin(category, eq(product.categoryId, category.id))
+    .leftJoin(sizeGroup, eq(product.sizeGroupId, sizeGroup.id))
     .where(whereClause)
     .orderBy(product.name)
     .limit(perPage)
@@ -108,17 +114,50 @@ export async function getProduct(workspaceSlug: string, productId: string) {
       description: product.description,
       categoryId: product.categoryId,
       categoryName: category.name,
+      sizeGroupId: product.sizeGroupId,
+      sizeGroupName: sizeGroup.name,
       tags: product.tags,
       baseCost: product.baseCost,
+      availableForSale: product.availableForSale,
       active: product.active,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     })
     .from(product)
     .leftJoin(category, eq(product.categoryId, category.id))
+    .leftJoin(sizeGroup, eq(product.sizeGroupId, sizeGroup.id))
     .where(and(eq(product.id, productId), eq(product.workspaceId, workspace.id)));
 
-  return result[0] || null;
+  if (!result[0]) {
+    return null;
+  }
+
+  // If product has a size group, get the options with calculated costs
+  let sizeOptions: { id: string; name: string; multiplier: string; isReference: boolean; calculatedCost: string }[] = [];
+  if (result[0].sizeGroupId) {
+    const options = await db
+      .select({
+        id: sizeOption.id,
+        name: sizeOption.name,
+        multiplier: sizeOption.multiplier,
+        isReference: sizeOption.isReference,
+        sortOrder: sizeOption.sortOrder,
+      })
+      .from(sizeOption)
+      .where(eq(sizeOption.sizeGroupId, result[0].sizeGroupId))
+      .orderBy(sizeOption.sortOrder);
+
+    const baseCost = parseFloat(result[0].baseCost);
+    sizeOptions = options.map((opt) => ({
+      ...opt,
+      calculatedCost: (baseCost * parseFloat(opt.multiplier)).toFixed(4),
+    }));
+  }
+
+  return {
+    ...result[0],
+    sizeOptions,
+  };
 }
 
 export async function createProduct(workspaceSlug: string, formData: FormData) {
@@ -132,7 +171,9 @@ export async function createProduct(workspaceSlug: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string | null;
   const categoryId = formData.get("categoryId") as string | null;
-  const active = formData.get("active") !== "false";
+  const sizeGroupId = formData.get("sizeGroupId") as string | null;
+  const availableForSale = formData.get("availableForSale") === "true";
+  const active = formData.get("active") === "true";
 
   if (!name) {
     return { error: "Nome é obrigatório" };
@@ -146,6 +187,8 @@ export async function createProduct(workspaceSlug: string, formData: FormData) {
     name: name.trim(),
     description: description?.trim() || null,
     categoryId: categoryId || null,
+    sizeGroupId: sizeGroupId || null,
+    availableForSale,
     active,
   });
 
@@ -168,7 +211,9 @@ export async function updateProduct(
   const name = formData.get("name") as string;
   const description = formData.get("description") as string | null;
   const categoryId = formData.get("categoryId") as string | null;
-  const active = formData.get("active") !== "false";
+  const sizeGroupId = formData.get("sizeGroupId") as string | null;
+  const availableForSale = formData.get("availableForSale") === "true";
+  const active = formData.get("active") === "true";
 
   if (!name) {
     return { error: "Nome é obrigatório" };
@@ -180,6 +225,8 @@ export async function updateProduct(
       name: name.trim(),
       description: description?.trim() || null,
       categoryId: categoryId || null,
+      sizeGroupId: sizeGroupId || null,
+      availableForSale,
       active,
       updatedAt: new Date(),
     })
@@ -434,7 +481,13 @@ async function calculateCompositionCost(
   return 0;
 }
 
-async function recalculateProductCost(productId: string) {
+async function recalculateProductCost(productId: string, visitedProducts: Set<string> = new Set()) {
+  // Prevent infinite loops in case of circular references
+  if (visitedProducts.has(productId)) {
+    return;
+  }
+  visitedProducts.add(productId);
+
   const items = await db
     .select({ calculatedCost: productComposition.calculatedCost })
     .from(productComposition)
@@ -452,6 +505,41 @@ async function recalculateProductCost(productId: string) {
       updatedAt: new Date(),
     })
     .where(eq(product.id, productId));
+
+  // CASCADE: Find all products that use this product in their composition
+  const dependentCompositions = await db
+    .select({
+      productId: productComposition.productId,
+      id: productComposition.id,
+      quantity: productComposition.quantity,
+      unitId: productComposition.unitId,
+    })
+    .from(productComposition)
+    .where(
+      and(
+        eq(productComposition.type, "product"),
+        eq(productComposition.itemId, productId)
+      )
+    );
+
+  // Update each dependent product's composition cost and recalculate
+  for (const comp of dependentCompositions) {
+    // Recalculate composition cost with updated product cost
+    const newCalculatedCost = await calculateCompositionCost(
+      "product",
+      productId,
+      parseFloat(comp.quantity),
+      comp.unitId
+    );
+
+    await db
+      .update(productComposition)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(productComposition.id, comp.id));
+
+    // Recursively recalculate the dependent product
+    await recalculateProductCost(comp.productId, visitedProducts);
+  }
 }
 
 // Get available items for product composition

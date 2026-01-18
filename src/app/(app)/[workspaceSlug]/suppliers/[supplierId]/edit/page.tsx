@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getSupplier, updateSupplier } from "@/actions/suppliers";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -102,7 +103,7 @@ export default async function EditSupplierPage({ params }: EditSupplierPageProps
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Salvar Alterações</Button>
+              <SubmitButton loadingText="Salvando...">Salvar Alterações</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/suppliers`}>Cancelar</Link>
               </Button>

@@ -11,6 +11,9 @@ import {
   unit,
   ingredient,
   ingredientVariation,
+  workspace,
+  productComposition,
+  product,
 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/session";
 import { getWorkspaceBySlug } from "./workspace";
@@ -115,7 +118,10 @@ export async function getRecipe(workspaceSlug: string, recipeId: string) {
       prepTime: recipe.prepTime,
       tags: recipe.tags,
       allergens: recipe.allergens,
+      availableForSale: recipe.availableForSale,
       totalCost: recipe.totalCost,
+      totalTime: recipe.totalTime,
+      laborCost: recipe.laborCost,
       costPerPortion: recipe.costPerPortion,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
@@ -125,7 +131,14 @@ export async function getRecipe(workspaceSlug: string, recipeId: string) {
     .leftJoin(unit, eq(recipe.yieldUnitId, unit.id))
     .where(and(eq(recipe.id, recipeId), eq(recipe.workspaceId, workspace.id)));
 
-  return result[0] || null;
+  if (!result[0]) return null;
+
+  const hasLaborCostConfigured = workspace.laborCostPerHour !== null && parseFloat(workspace.laborCostPerHour) > 0;
+
+  return {
+    ...result[0],
+    hasLaborCostConfigured,
+  };
 }
 
 export async function createRecipe(workspaceSlug: string, formData: FormData) {
@@ -182,6 +195,7 @@ export async function updateRecipe(
   const yieldQuantity = formData.get("yieldQuantity") as string;
   const yieldUnitId = formData.get("yieldUnitId") as string;
   const prepTime = formData.get("prepTime") as string | null;
+  const availableForSale = formData.get("availableForSale") === "true";
 
   if (!name || !yieldQuantity || !yieldUnitId) {
     return { error: "Nome, rendimento e unidade são obrigatórios" };
@@ -196,6 +210,7 @@ export async function updateRecipe(
       yieldQuantity,
       yieldUnitId,
       prepTime: prepTime ? parseInt(prepTime) : null,
+      availableForSale,
       updatedAt: new Date(),
     })
     .where(and(eq(recipe.id, recipeId), eq(recipe.workspaceId, workspace.id)));
@@ -371,6 +386,74 @@ export async function removeRecipeItem(
   return { success: true };
 }
 
+export async function updateRecipeItem(
+  workspaceSlug: string,
+  recipeId: string,
+  itemId: string,
+  formData: FormData
+) {
+  await requireSession();
+
+  const quantity = formData.get("quantity") as string;
+  const unitId = formData.get("unitId") as string;
+
+  if (!quantity || !unitId) {
+    return { error: "Quantidade e unidade são obrigatórios" };
+  }
+
+  // Get current item to know the type
+  const currentItem = await db
+    .select()
+    .from(recipeItem)
+    .where(eq(recipeItem.id, itemId));
+
+  if (!currentItem[0]) {
+    return { error: "Item não encontrado" };
+  }
+
+  const item = currentItem[0];
+
+  // Validate unit compatibility
+  const selectedUnit = await db.select().from(unit).where(eq(unit.id, unitId));
+  if (!selectedUnit[0]) {
+    return { error: "Unidade não encontrada" };
+  }
+
+  if (item.type === "ingredient") {
+    const ing = await db.select({ measurementType: ingredient.measurementType }).from(ingredient).where(eq(ingredient.id, item.itemId));
+    if (ing[0] && ing[0].measurementType !== selectedUnit[0].measurementType) {
+      return { error: "Unidade incompatível com o tipo de medida do ingrediente" };
+    }
+  } else if (item.type === "variation") {
+    const v = await db
+      .select({ measurementType: ingredient.measurementType })
+      .from(ingredientVariation)
+      .innerJoin(ingredient, eq(ingredientVariation.ingredientId, ingredient.id))
+      .where(eq(ingredientVariation.id, item.itemId));
+    if (v[0] && v[0].measurementType !== selectedUnit[0].measurementType) {
+      return { error: "Unidade incompatível com o tipo de medida da variação" };
+    }
+  }
+
+  // Calculate new cost
+  const calculatedCost = await calculateItemCost(item.type, item.itemId, parseFloat(quantity), unitId);
+
+  await db
+    .update(recipeItem)
+    .set({
+      quantity,
+      unitId,
+      calculatedCost: calculatedCost.toFixed(4),
+    })
+    .where(eq(recipeItem.id, itemId));
+
+  // Recalculate recipe total cost
+  await recalculateRecipeCost(recipeId);
+
+  revalidatePath(`/${workspaceSlug}/recipes/${recipeId}`);
+  return { success: true };
+}
+
 // Recipe Steps
 export async function getRecipeSteps(recipeId: string) {
   await requireSession();
@@ -417,6 +500,9 @@ export async function addRecipeStep(
     time: time ? parseInt(time) : null,
   });
 
+  // Recalculate recipe (totalTime affects labor cost)
+  await recalculateRecipeCost(recipeId);
+
   revalidatePath(`/${workspaceSlug}/recipes/${recipeId}`);
   return { success: true, id };
 }
@@ -429,6 +515,39 @@ export async function removeRecipeStep(
   await requireSession();
 
   await db.delete(recipeStep).where(eq(recipeStep.id, stepId));
+
+  // Recalculate recipe (totalTime affects labor cost)
+  await recalculateRecipeCost(recipeId);
+
+  revalidatePath(`/${workspaceSlug}/recipes/${recipeId}`);
+  return { success: true };
+}
+
+export async function updateRecipeStep(
+  workspaceSlug: string,
+  recipeId: string,
+  stepId: string,
+  formData: FormData
+) {
+  await requireSession();
+
+  const description = formData.get("description") as string;
+  const time = formData.get("time") as string | null;
+
+  if (!description) {
+    return { error: "Descrição é obrigatória" };
+  }
+
+  await db
+    .update(recipeStep)
+    .set({
+      description: description.trim(),
+      time: time ? parseInt(time) : null,
+    })
+    .where(eq(recipeStep.id, stepId));
+
+  // Recalculate recipe (totalTime affects labor cost)
+  await recalculateRecipeCost(recipeId);
 
   revalidatePath(`/${workspaceSlug}/recipes/${recipeId}`);
   return { success: true };
@@ -493,7 +612,13 @@ async function calculateItemCost(
   return 0;
 }
 
-async function recalculateRecipeCost(recipeId: string) {
+async function recalculateRecipeCost(recipeId: string, visitedRecipes: Set<string> = new Set()) {
+  // Prevent infinite loops in case of circular references
+  if (visitedRecipes.has(recipeId)) {
+    return;
+  }
+  visitedRecipes.add(recipeId);
+
   // Get all items
   const items = await db
     .select({ calculatedCost: recipeItem.calculatedCost })
@@ -505,23 +630,178 @@ async function recalculateRecipeCost(recipeId: string) {
     0
   );
 
-  // Get yield quantity
+  // Get recipe with workspace for labor cost calculation
   const rec = await db
-    .select({ yieldQuantity: recipe.yieldQuantity })
+    .select({
+      yieldQuantity: recipe.yieldQuantity,
+      yieldUnitId: recipe.yieldUnitId,
+      workspaceId: recipe.workspaceId,
+      prepTime: recipe.prepTime,
+    })
     .from(recipe)
     .where(eq(recipe.id, recipeId));
 
-  const yieldQty = rec[0] ? parseFloat(rec[0].yieldQuantity) : 1;
-  const costPerPortion = totalCost / yieldQty;
+  if (!rec[0]) return;
+
+  // Use prepTime from recipe for labor cost calculation
+  const prepTime = rec[0].prepTime || 0;
+
+  // Get workspace labor cost per hour
+  const ws = await db
+    .select({ laborCostPerHour: workspace.laborCostPerHour })
+    .from(workspace)
+    .where(eq(workspace.id, rec[0].workspaceId));
+
+  const laborCostPerHour = ws[0]?.laborCostPerHour ? parseFloat(ws[0].laborCostPerHour) : 0;
+
+  // Calculate labor cost: (prepTime in minutes / 60) * laborCostPerHour
+  const laborCost = (prepTime / 60) * laborCostPerHour;
+
+  const yieldQty = parseFloat(rec[0].yieldQuantity) || 1;
+  // Cost per portion includes both ingredients and labor
+  const costPerPortion = (totalCost + laborCost) / yieldQty;
 
   await db
     .update(recipe)
     .set({
       totalCost: totalCost.toFixed(4),
+      totalTime: prepTime,
+      laborCost: laborCost.toFixed(4),
       costPerPortion: costPerPortion.toFixed(4),
       updatedAt: new Date(),
     })
     .where(eq(recipe.id, recipeId));
+
+  // CASCADE: Find all recipes that use this recipe as an item
+  const dependentRecipeItems = await db
+    .select({
+      recipeId: recipeItem.recipeId,
+      id: recipeItem.id,
+      quantity: recipeItem.quantity,
+      unitId: recipeItem.unitId,
+    })
+    .from(recipeItem)
+    .where(
+      and(
+        eq(recipeItem.type, "recipe"),
+        eq(recipeItem.itemId, recipeId)
+      )
+    );
+
+  for (const item of dependentRecipeItems) {
+    // Recalculate item cost with updated recipe cost
+    const newCalculatedCost = await calculateItemCost(
+      "recipe",
+      recipeId,
+      parseFloat(item.quantity),
+      item.unitId
+    );
+
+    await db
+      .update(recipeItem)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(recipeItem.id, item.id));
+
+    // Recursively recalculate the dependent recipe
+    await recalculateRecipeCost(item.recipeId, visitedRecipes);
+  }
+
+  // CASCADE: Find all products that use this recipe in their composition
+  const dependentProductCompositions = await db
+    .select({
+      productId: productComposition.productId,
+      id: productComposition.id,
+      quantity: productComposition.quantity,
+      unitId: productComposition.unitId,
+    })
+    .from(productComposition)
+    .where(
+      and(
+        eq(productComposition.type, "recipe"),
+        eq(productComposition.itemId, recipeId)
+      )
+    );
+
+  for (const comp of dependentProductCompositions) {
+    // Get recipe's yield unit conversion factor
+    const yieldUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, rec[0].yieldUnitId));
+    const yieldConversionFactor = yieldUnit[0] ? parseFloat(yieldUnit[0].conversionFactor) : 1;
+
+    // Get composition unit conversion factor
+    let inputConversionFactor = 1;
+    if (comp.unitId) {
+      const inputUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, comp.unitId));
+      inputConversionFactor = inputUnit[0] ? parseFloat(inputUnit[0].conversionFactor) : 1;
+    }
+
+    // Calculate new cost
+    const quantityInBase = parseFloat(comp.quantity) * inputConversionFactor;
+    const costPerBase = costPerPortion / yieldConversionFactor;
+    const newCalculatedCost = costPerBase * quantityInBase;
+
+    await db
+      .update(productComposition)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(productComposition.id, comp.id));
+
+    // Recalculate the dependent product (this will cascade to other products)
+    await recalculateProductCostFromRecipe(comp.productId);
+  }
+}
+
+// Helper function to recalculate product cost (called from recipe cascade)
+async function recalculateProductCostFromRecipe(productId: string, visitedProducts: Set<string> = new Set()) {
+  // Prevent infinite loops
+  if (visitedProducts.has(productId)) {
+    return;
+  }
+  visitedProducts.add(productId);
+
+  const items = await db
+    .select({ calculatedCost: productComposition.calculatedCost })
+    .from(productComposition)
+    .where(eq(productComposition.productId, productId));
+
+  const baseCost = items.reduce(
+    (sum, item) => sum + parseFloat(item.calculatedCost),
+    0
+  );
+
+  await db
+    .update(product)
+    .set({
+      baseCost: baseCost.toFixed(4),
+      updatedAt: new Date(),
+    })
+    .where(eq(product.id, productId));
+
+  // CASCADE: Find all products that use this product in their composition
+  const dependentCompositions = await db
+    .select({
+      productId: productComposition.productId,
+      id: productComposition.id,
+      quantity: productComposition.quantity,
+    })
+    .from(productComposition)
+    .where(
+      and(
+        eq(productComposition.type, "product"),
+        eq(productComposition.itemId, productId)
+      )
+    );
+
+  for (const comp of dependentCompositions) {
+    // Recalculate composition cost with updated product cost
+    const newCalculatedCost = baseCost * parseFloat(comp.quantity);
+
+    await db
+      .update(productComposition)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(productComposition.id, comp.id));
+
+    // Recursively recalculate the dependent product
+    await recalculateProductCostFromRecipe(comp.productId, visitedProducts);
+  }
 }
 
 // Get available items for recipe (ingredients, variations, recipes)
@@ -609,4 +889,28 @@ export async function getAvailableItemsForRecipe(workspaceSlug: string, currentR
         cost: r.costPerPortion,
       })),
   };
+}
+
+// Recalculate all recipe costs for a workspace (used when labor cost changes)
+export async function recalculateAllRecipeCosts(workspaceSlug: string) {
+  await requireSession();
+  const workspaceData = await getWorkspaceBySlug(workspaceSlug);
+
+  if (!workspaceData) {
+    return { error: "Workspace não encontrado" };
+  }
+
+  // Get all recipes for this workspace
+  const recipes = await db
+    .select({ id: recipe.id })
+    .from(recipe)
+    .where(eq(recipe.workspaceId, workspaceData.id));
+
+  // Recalculate each recipe
+  for (const rec of recipes) {
+    await recalculateRecipeCost(rec.id);
+  }
+
+  revalidatePath(`/${workspaceSlug}/recipes`);
+  return { success: true, count: recipes.length };
 }

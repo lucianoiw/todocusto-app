@@ -85,8 +85,8 @@ export function UnitsFilters({ workspaceSlug }: UnitsFiltersProps) {
       </select>
 
       {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
-          <IconX className="w-4 h-4 mr-1" />
+        <Button variant="ghost" onClick={clearFilters}>
+          <IconX />
           Limpar
         </Button>
       )}

@@ -59,16 +59,19 @@ src/
 ## Schema do Banco de Dados
 
 ### Autenticação (better-auth)
+
 - `user` - usuários
 - `session` - sessões ativas
 - `account` - contas OAuth (futuro)
 - `verification` - tokens de verificação
 
 ### Multi-tenant
+
 - `workspace` - espaços de trabalho (negócios)
 - `workspaceMember` - membros do workspace (roles: owner, admin, member)
 
 ### Domínio
+
 - `unit` - unidades de medida com:
   - `measurementType`: weight | volume | unit
   - `conversionFactor`: fator para unidade base (g, ml, un)
@@ -84,23 +87,34 @@ src/
 - `recipe` - receitas
 - `recipeItem` - itens da receita (ingrediente, variação, ou outra receita)
 - `recipeStep` - passos da receita
-- `product` - produtos vendáveis
-- `productComposition` - composição do produto
+- `product` - produtos vendáveis com:
+  - `sizeGroupId`: grupo de tamanhos opcional (para pizzas, açaí, etc)
+- `productComposition` - composição do produto (ingredientes, variações, receitas, outros produtos)
+
+### Tamanhos (para pizzarias, açaiterias, etc)
+
+- `sizeGroup` - grupos de tamanhos do workspace (ex: "Tamanhos de Pizza", "Tamanhos de Açaí")
+- `sizeOption` - opções de tamanho dentro do grupo com:
+  - `multiplier`: multiplicador de custo (ex: 0.5 para P, 1.0 para G)
+  - `isReference`: marca qual tamanho é a referência (multiplicador 1.0)
 
 ### Cardápios
+
 - `menu` - cardápios com margem de lucro alvo
 - `menuFee` - taxas (cartão, delivery, impostos) em percentual
 - `fixedCost` - custos fixos globais (aluguel, energia, salários)
 - `menuFixedCost` - custos fixos associados ao cardápio com rateio
 - `menuProduct` - produtos no cardápio com:
+  - `sizeOptionId`: tamanho opcional (se produto tem tamanhos)
   - `sellingPrice`: preço de venda
-  - `calculatedCost`: custo base do produto
+  - `calculatedCost`: custo base do produto (com multiplicador de tamanho)
   - `marginPercent`: margem calculada
   - Simulador de preço sugerido
 
 ## Sistema de Custos
 
 ### Tipos de Medida
+
 - **weight** (Peso): base em gramas (g), suporta kg, mg, etc.
 - **volume** (Líquido): base em mililitros (ml), suporta L, etc.
 - **unit** (Unidade): base em unidades (un), suporta dúzia, etc.
@@ -119,16 +133,18 @@ Receita (soma custos dos itens ÷ rendimento)
     ↓
 Produto (soma custos da composição)
     ↓
-Menu (+ custos fixos + taxas + margem) [Fase 2]
+Menu (+ custos fixos + taxas + margem)
 ```
 
 ### Cálculo do Custo Base do Ingrediente
+
 ```
 baseCostPerUnit = averagePrice ÷ conversionFactor
 Ex: R$50/kg ÷ 1000 = R$0.05/g
 ```
 
 ### Cálculo de Variação
+
 ```
 custoVariação = (baseCostPerUnit × quantidade × conversionFactor) ÷ rendimento
 Ex: 100g de carne a R$0.05/g com 80% rendimento
@@ -136,18 +152,33 @@ Ex: 100g de carne a R$0.05/g com 80% rendimento
 ```
 
 ### Cálculo de Receita
+
 ```
 custoReceita = Σ(custoItem × quantidade × conversionFactor) ÷ rendimentoReceita
 ```
 
 ### Cálculo de Produto
+
 ```
 custoBase = Σ(custoItem × quantidade × conversionFactor)
+```
+
+### Cálculo de Produto com Tamanhos
+
+```
+custoTamanho = custoBase × multiplicador
+
+Exemplo: Pizza de Frango (custoBase = R$14,40)
+├── Pequena (0.5x) = R$14,40 × 0.5 = R$ 7,20
+├── Média (0.75x) = R$14,40 × 0.75 = R$10,80
+├── Grande (1.0x) = R$14,40 × 1.0 = R$14,40 ← Referência
+└── Gigante (1.3x) = R$14,40 × 1.3 = R$18,72
 ```
 
 ## Status de Implementação
 
 ### ✅ Fase 1 (MVP) - Concluída
+
 - [x] Autenticação (login/registro)
 - [x] Multi-workspace (criar/selecionar espaços)
 - [x] Unidades de medida (CRUD + seed de unidades padrão)
@@ -162,6 +193,7 @@ custoBase = Σ(custoItem × quantidade × conversionFactor)
 - [x] Composição de produto (ingredientes, variações, receitas, outros produtos)
 
 ### ✅ Fase 2 - Cardápios - Concluída
+
 - [x] CRUD de cardápios
 - [x] Custos fixos globais (aluguel, energia, salários)
 - [x] Taxas percentuais (cartão, delivery, impostos)
@@ -170,7 +202,18 @@ custoBase = Σ(custoItem × quantidade × conversionFactor)
 - [x] Rateio de custos fixos por cardápio
 - [x] Simulador de preço sugerido (calcula preço para manter margem alvo)
 
+### ✅ Fase 2.1 - Tamanhos (Pizzarias, Açaiterias) - Concluída
+
+- [x] Grupos de tamanhos por workspace (ex: "Tamanhos de Pizza")
+- [x] Opções de tamanho com multiplicador (P=0.5x, M=0.75x, G=1.0x)
+- [x] Marcação de tamanho referência para composição
+- [x] Vinculação opcional de produto a grupo de tamanhos
+- [x] Cálculo automático de custo por tamanho (base × multiplicador)
+- [x] Produtos com tamanhos no cardápio (cada tamanho = linha separada)
+- [x] Prévia de custos por tamanho na página do produto
+
 ### ✅ UX/UI - Concluída
+
 - [x] Dark mode (toggle light/dark)
 - [x] Formatação brasileira de moeda (vírgula como decimal)
 - [x] Select com busca para itens (combobox)
@@ -179,11 +222,13 @@ custoBase = Σ(custoItem × quantidade × conversionFactor)
 - [x] Layout consistente entre tabelas
 
 ### ⏳ Fase 3 - Relatórios
+
 - [ ] Dashboard com métricas
 - [ ] Comparativo de custos
 - [ ] Exportação PDF/Excel
 
 ### 🔧 Melhorias Pendentes
+
 - [ ] Recálculo em cascata (ingrediente → variações → receitas → produtos)
 - [ ] Convidar membros para workspace
 - [ ] Verificação de email

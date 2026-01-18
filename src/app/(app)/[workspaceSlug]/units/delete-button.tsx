@@ -48,8 +48,8 @@ export function DeleteUnitButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-          <IconTrash className="w-4 h-4" />
+        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+          <IconTrash />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

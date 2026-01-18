@@ -58,13 +58,15 @@ function formatCurrency(value: number) {
   });
 }
 
-function getMarginColor(margin: number) {
+function getMarginColor(margin: number, active: boolean = true) {
+  if (!active) return "text-muted-foreground";
   if (margin >= 30) return "text-green-600 dark:text-green-400";
   if (margin >= 15) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 }
 
-function getProgressColor(margin: number) {
+function getProgressColor(margin: number, active: boolean = true) {
+  if (!active) return "bg-muted-foreground/50";
   if (margin >= 30) return "bg-green-500";
   if (margin >= 15) return "bg-amber-500";
   return "bg-red-500";
@@ -163,13 +165,13 @@ export function MenusTable({ workspaceSlug, menus }: MenusTableProps) {
                       <IconPercentage className="w-3.5 h-3.5" />
                       Margem média
                     </span>
-                    <span className={`font-bold ${getMarginColor(menu.avgMarginPercentage)}`}>
+                    <span className={`font-bold ${getMarginColor(menu.avgMarginPercentage, menu.active)}`}>
                       {menu.avgMarginPercentage.toFixed(1)}%
                     </span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${getProgressColor(menu.avgMarginPercentage)}`}
+                      className={`h-full rounded-full transition-all ${getProgressColor(menu.avgMarginPercentage, menu.active)}`}
                       style={{ width: `${Math.min(Math.max(menu.avgMarginPercentage, 0), 100)}%` }}
                     />
                   </div>
@@ -187,7 +189,7 @@ export function MenusTable({ workspaceSlug, menus }: MenusTableProps) {
                   </div>
                   <div className="bg-muted/50 rounded-lg p-2">
                     <div className="text-xs text-muted-foreground mb-0.5">Lucro</div>
-                    <div className={`font-semibold text-sm ${getMarginColor(menu.avgMarginPercentage)}`}>
+                    <div className={`font-semibold text-sm ${getMarginColor(menu.avgMarginPercentage, menu.active)}`}>
                       {formatCurrency(menu.totalMargin)}
                     </div>
                   </div>
@@ -205,7 +207,7 @@ export function MenusTable({ workspaceSlug, menus }: MenusTableProps) {
                   <IconPackage className="w-5 h-5" />
                   <span className="text-sm">Nenhum produto</span>
                 </div>
-                <Button variant="outline" size="sm" className="w-full mt-3" asChild>
+                <Button variant="outline" className="w-full mt-3" asChild>
                   <Link href={`/${workspaceSlug}/menus/${menu.id}`}>
                     Adicionar produtos
                   </Link>

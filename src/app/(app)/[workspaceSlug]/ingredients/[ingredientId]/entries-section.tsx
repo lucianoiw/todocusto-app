@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createEntry, deleteEntry } from "@/actions/ingredients";
+import { createEntry, updateEntry, deleteEntry } from "@/actions/ingredients";
 import { getUnits } from "@/actions/units";
 import { getSuppliersList, quickCreateSupplier } from "@/actions/suppliers";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { IconPlus, IconTrash, IconLoader2 } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconLoader2, IconPencil } from "@tabler/icons-react";
 
 interface Entry {
   id: string;
@@ -78,16 +78,19 @@ export function EntriesSection({
 }: EntriesSectionProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [loading, setLoading] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   // Form state
+  const [formDate, setFormDate] = useState("");
   const [unitId, setUnitId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [updateAveragePrice, setUpdateAveragePrice] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [showNewSupplierInput, setShowNewSupplierInput] = useState(false);
+  const [formObservation, setFormObservation] = useState("");
   const supplierInputRef = useRef<HTMLInputElement>(null);
 
   // Form values for price preview
@@ -152,15 +155,10 @@ export function EntriesSection({
     [units, measurementType]
   );
 
-  async function loadData() {
-    const [unitsResult, loadedSuppliers] = await Promise.all([
-      getUnits(workspaceSlug),
-      getSuppliersList(workspaceSlug),
-    ]);
-    setUnits(unitsResult.all);
-    setSuppliers(loadedSuppliers);
+  const today = new Date().toISOString().split("T")[0];
 
-    // Reset form state
+  function resetForm() {
+    setFormDate(today);
     setUnitId("");
     setSupplierId("");
     setUpdateAveragePrice(false);
@@ -168,6 +166,34 @@ export function EntriesSection({
     setShowNewSupplierInput(false);
     setFormQuantity("");
     setFormPrice("");
+    setFormObservation("");
+    setEditingEntry(null);
+  }
+
+  async function loadData(entryToEdit?: Entry) {
+    const [unitsResult, loadedSuppliers] = await Promise.all([
+      getUnits(workspaceSlug),
+      getSuppliersList(workspaceSlug),
+    ]);
+    setUnits(unitsResult.all);
+    setSuppliers(loadedSuppliers);
+
+    if (entryToEdit) {
+      // Edit mode - populate form with entry data
+      setEditingEntry(entryToEdit);
+      setFormDate(entryToEdit.date);
+      setUnitId(entryToEdit.unitId);
+      setSupplierId(entryToEdit.supplierId || "");
+      setFormQuantity(parseFloat(entryToEdit.quantity).toString());
+      setFormPrice(parseFloat(entryToEdit.totalPrice).toString());
+      setFormObservation(entryToEdit.observation || "");
+      setUpdateAveragePrice(false);
+      setNewSupplierName("");
+      setShowNewSupplierInput(false);
+    } else {
+      // Create mode - reset form
+      resetForm();
+    }
     setShowForm(true);
   }
 
@@ -182,9 +208,18 @@ export function EntriesSection({
         }
       }
 
-      const result = await createEntry(workspaceSlug, ingredientId, formData);
+      let result;
+      if (editingEntry) {
+        // Update existing entry
+        result = await updateEntry(workspaceSlug, ingredientId, editingEntry.id, formData);
+      } else {
+        // Create new entry
+        result = await createEntry(workspaceSlug, ingredientId, formData);
+      }
+
       if (result.success) {
         setShowForm(false);
+        setEditingEntry(null);
         router.refresh();
       } else {
         alert(result.error);
@@ -203,15 +238,19 @@ export function EntriesSection({
     }
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  function handleCancel() {
+    setShowForm(false);
+    setEditingEntry(null);
+    resetForm();
+  }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Entradas (Compras)</CardTitle>
         {!showForm && (
-          <Button size="sm" onClick={loadData}>
-            <IconPlus className="w-4 h-4 mr-1" />
+          <Button onClick={() => loadData()}>
+            <IconPlus />
             Nova Entrada
           </Button>
         )}
@@ -222,6 +261,11 @@ export function EntriesSection({
             action={handleSubmit}
             className="space-y-4 mb-6 p-4 bg-muted/50 rounded-lg"
           >
+            {editingEntry && (
+              <div className="text-sm font-medium text-muted-foreground mb-2">
+                Editando entrada
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Data *</Label>
@@ -229,7 +273,8 @@ export function EntriesSection({
                   id="date"
                   name="date"
                   type="date"
-                  defaultValue={today}
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
                   required
                 />
               </div>
@@ -271,7 +316,6 @@ export function EntriesSection({
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
                       onClick={() => {
                         setShowNewSupplierInput(false);
                         setNewSupplierName("");
@@ -340,10 +384,13 @@ export function EntriesSection({
                 id="observation"
                 name="observation"
                 placeholder="Alguma observação"
+                value={formObservation}
+                onChange={(e) => setFormObservation(e.target.value)}
               />
             </div>
 
-            {/* Price Preview & Average Price Option */}
+            {/* Price Preview & Average Price Option - only show for new entries */}
+            {!editingEntry && (
             <div className="p-3 bg-background rounded border space-y-3">
               {pricePreview && (
                 <div>
@@ -391,9 +438,10 @@ export function EntriesSection({
                 </label>
               </div>
             </div>
+            )}
 
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>
                     <IconLoader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -406,8 +454,7 @@ export function EntriesSection({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                onClick={() => setShowForm(false)}
+                onClick={handleCancel}
               >
                 Cancelar
               </Button>
@@ -456,16 +503,25 @@ export function EntriesSection({
                       {entry.supplierName || "-"}
                     </td>
                     <td className="py-2 pl-4 text-right">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600"
-                          >
-                            <IconTrash className="w-4 h-4" />
-                          </Button>
-                        </AlertDialogTrigger>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => loadData(entry)}
+                          title="Editar entrada"
+                        >
+                          <IconPencil className="w-4 h-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-red-600"
+                            >
+                              <IconTrash />
+                            </Button>
+                          </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Excluir entrada</AlertDialogTitle>
@@ -484,7 +540,8 @@ export function EntriesSection({
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
-                      </AlertDialog>
+                        </AlertDialog>
+                      </div>
                     </td>
                   </tr>
                 ))}

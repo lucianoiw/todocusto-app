@@ -9,6 +9,11 @@ import {
   menuFee,
   fixedCost,
   product,
+  sizeGroup,
+  sizeOption,
+  ingredient,
+  recipe,
+  unit,
 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/session";
 import { getWorkspaceBySlug } from "./workspace";
@@ -135,6 +140,8 @@ export async function getMenu(workspaceSlug: string, menuId: string) {
       name: menu.name,
       description: menu.description,
       active: menu.active,
+      targetMargin: menu.targetMargin,
+      pricingMode: menu.pricingMode,
       apportionmentType: menu.apportionmentType,
       apportionmentValue: menu.apportionmentValue,
       createdAt: menu.createdAt,
@@ -156,7 +163,8 @@ export async function createMenu(workspaceSlug: string, formData: FormData) {
 
   const name = formData.get("name") as string;
   const description = formData.get("description") as string | null;
-  const active = formData.get("active") !== "false";
+  const targetMarginStr = formData.get("targetMargin") as string | null;
+  const active = formData.get("active") === "true";
 
   if (!name) {
     return { error: "Nome é obrigatório" };
@@ -169,6 +177,7 @@ export async function createMenu(workspaceSlug: string, formData: FormData) {
     workspaceId: workspace.id,
     name: name.trim(),
     description: description?.trim() || null,
+    targetMargin: targetMarginStr || "30",
     active,
   });
 
@@ -190,7 +199,9 @@ export async function updateMenu(
 
   const name = formData.get("name") as string;
   const description = formData.get("description") as string | null;
-  const active = formData.get("active") !== "false";
+  const targetMarginStr = formData.get("targetMargin") as string | null;
+  const pricingMode = formData.get("pricingMode") as "margin" | "markup" | null;
+  const active = formData.get("active") === "true";
 
   if (!name) {
     return { error: "Nome é obrigatório" };
@@ -201,6 +212,8 @@ export async function updateMenu(
     .set({
       name: name.trim(),
       description: description?.trim() || null,
+      targetMargin: targetMarginStr || "30",
+      pricingMode: pricingMode || "margin",
       active,
       updatedAt: new Date(),
     })
@@ -227,26 +240,110 @@ export async function deleteMenu(workspaceSlug: string, menuId: string) {
   return { success: true };
 }
 
-// Menu Products
+// Menu Products/Items
 export async function getMenuProducts(menuId: string) {
   await requireSession();
 
-  const items = await db
+  // Get all menu items
+  const menuItems = await db
     .select({
       id: menuProduct.id,
-      productId: menuProduct.productId,
-      productName: product.name,
-      productBaseCost: product.baseCost,
+      itemType: menuProduct.itemType,
+      itemId: menuProduct.itemId,
+      sizeOptionId: menuProduct.sizeOptionId,
       salePrice: menuProduct.salePrice,
       totalCost: menuProduct.totalCost,
       marginValue: menuProduct.marginValue,
       marginPercentage: menuProduct.marginPercentage,
     })
     .from(menuProduct)
-    .innerJoin(product, eq(menuProduct.productId, product.id))
     .where(eq(menuProduct.menuId, menuId));
 
-  return items;
+  // Enrich items with their details
+  const enrichedItems = await Promise.all(
+    menuItems.map(async (item) => {
+      let productName = "";
+      let productBaseCost = "0";
+      let productSizeGroupId: string | null = null;
+      let sizeOptionName: string | null = null;
+      let sizeOptionMultiplier: string | null = null;
+
+      if (item.itemType === "product") {
+        const prod = await db
+          .select({
+            name: product.name,
+            baseCost: product.baseCost,
+            sizeGroupId: product.sizeGroupId,
+          })
+          .from(product)
+          .where(eq(product.id, item.itemId));
+
+        if (prod[0]) {
+          productName = prod[0].name;
+          productBaseCost = prod[0].baseCost;
+          productSizeGroupId = prod[0].sizeGroupId;
+        }
+
+        if (item.sizeOptionId) {
+          const sizeOpt = await db
+            .select({ name: sizeOption.name, multiplier: sizeOption.multiplier })
+            .from(sizeOption)
+            .where(eq(sizeOption.id, item.sizeOptionId));
+
+          if (sizeOpt[0]) {
+            sizeOptionName = sizeOpt[0].name;
+            sizeOptionMultiplier = sizeOpt[0].multiplier;
+          }
+        }
+      } else if (item.itemType === "ingredient") {
+        const ing = await db
+          .select({ name: ingredient.name, averagePrice: ingredient.averagePrice })
+          .from(ingredient)
+          .where(eq(ingredient.id, item.itemId));
+
+        if (ing[0]) {
+          productName = ing[0].name;
+          productBaseCost = ing[0].averagePrice;
+        }
+      } else if (item.itemType === "recipe") {
+        const rec = await db
+          .select({ name: recipe.name, totalCost: recipe.totalCost })
+          .from(recipe)
+          .where(eq(recipe.id, item.itemId));
+
+        if (rec[0]) {
+          productName = rec[0].name;
+          productBaseCost = rec[0].totalCost;
+        }
+      }
+
+      return {
+        id: item.id,
+        itemType: item.itemType,
+        productId: item.itemId, // Keep for backwards compatibility
+        productName,
+        productBaseCost,
+        productSizeGroupId,
+        sizeOptionId: item.sizeOptionId,
+        sizeOptionName,
+        sizeOptionMultiplier,
+        salePrice: item.salePrice,
+        totalCost: item.totalCost,
+        marginValue: item.marginValue,
+        marginPercentage: item.marginPercentage,
+      };
+    })
+  );
+
+  // Sort by product name and then size option name
+  return enrichedItems.sort((a, b) => {
+    const nameCompare = a.productName.localeCompare(b.productName);
+    if (nameCompare !== 0) return nameCompare;
+    if (a.sizeOptionName && b.sizeOptionName) {
+      return a.sizeOptionName.localeCompare(b.sizeOptionName);
+    }
+    return 0;
+  });
 }
 
 export async function addMenuProduct(
@@ -261,34 +358,84 @@ export async function addMenuProduct(
     return { error: "Workspace não encontrado" };
   }
 
-  const productId = formData.get("productId") as string;
+  const itemType = (formData.get("itemType") as string) || "product";
+  const itemId = formData.get("itemId") as string || formData.get("productId") as string;
+  const sizeOptionId = formData.get("sizeOptionId") as string | null;
   const salePrice = formData.get("salePrice") as string;
 
-  if (!productId || !salePrice) {
-    return { error: "Produto e preço de venda são obrigatórios" };
+  if (!itemId || !salePrice) {
+    return { error: "Item e preco de venda sao obrigatorios" };
   }
 
-  // Check if product is already in menu
+  // Check if item+size combination is already in menu
   const existing = await db
-    .select({ id: menuProduct.id })
+    .select({ id: menuProduct.id, sizeOptionId: menuProduct.sizeOptionId })
     .from(menuProduct)
-    .where(and(eq(menuProduct.menuId, menuId), eq(menuProduct.productId, productId)));
+    .where(and(
+      eq(menuProduct.menuId, menuId),
+      eq(menuProduct.itemId, itemId),
+      eq(menuProduct.itemType, itemType as "product" | "ingredient" | "recipe")
+    ));
 
-  if (existing.length > 0) {
-    return { error: "Produto já está no cardápio" };
+  // Check if the specific item+size combination exists
+  const isDuplicate = existing.some((e) =>
+    sizeOptionId ? e.sizeOptionId === sizeOptionId : !e.sizeOptionId
+  );
+
+  if (isDuplicate) {
+    return { error: "Este item (com este tamanho) ja esta no cardapio" };
   }
 
-  // Get product base cost
-  const prod = await db
-    .select({ baseCost: product.baseCost })
-    .from(product)
-    .where(eq(product.id, productId));
+  // Get item base cost based on type
+  let baseCost = 0;
 
-  if (!prod[0]) {
-    return { error: "Produto não encontrado" };
+  if (itemType === "product") {
+    const prod = await db
+      .select({ baseCost: product.baseCost, sizeGroupId: product.sizeGroupId })
+      .from(product)
+      .where(eq(product.id, itemId));
+
+    if (!prod[0]) {
+      return { error: "Produto nao encontrado" };
+    }
+
+    baseCost = parseFloat(prod[0].baseCost);
+
+    // If product has sizes and sizeOptionId is provided, apply multiplier
+    if (sizeOptionId) {
+      const sizeOpt = await db
+        .select({ multiplier: sizeOption.multiplier })
+        .from(sizeOption)
+        .where(eq(sizeOption.id, sizeOptionId));
+
+      if (sizeOpt[0]) {
+        baseCost = baseCost * parseFloat(sizeOpt[0].multiplier);
+      }
+    }
+  } else if (itemType === "ingredient") {
+    const ing = await db
+      .select({ averagePrice: ingredient.averagePrice })
+      .from(ingredient)
+      .where(eq(ingredient.id, itemId));
+
+    if (!ing[0]) {
+      return { error: "Insumo nao encontrado" };
+    }
+
+    baseCost = parseFloat(ing[0].averagePrice);
+  } else if (itemType === "recipe") {
+    const rec = await db
+      .select({ totalCost: recipe.totalCost })
+      .from(recipe)
+      .where(eq(recipe.id, itemId));
+
+    if (!rec[0]) {
+      return { error: "Receita nao encontrada" };
+    }
+
+    baseCost = parseFloat(rec[0].totalCost);
   }
 
-  const baseCost = parseFloat(prod[0].baseCost);
   const salePriceNum = parseFloat(salePrice);
 
   // Get menu fees to calculate total cost
@@ -361,7 +508,9 @@ export async function addMenuProduct(
   await db.insert(menuProduct).values({
     id,
     menuId,
-    productId,
+    itemType: itemType as "product" | "ingredient" | "recipe",
+    itemId,
+    sizeOptionId: sizeOptionId || null,
     salePrice: salePriceNum.toFixed(4),
     totalCost: totalCost.toFixed(4),
     marginValue: marginValue.toFixed(4),
@@ -391,9 +540,13 @@ export async function updateMenuProduct(
     return { error: "Preço de venda é obrigatório" };
   }
 
-  // Get current menu product to get productId
+  // Get current menu item to get itemType, itemId and sizeOptionId
   const current = await db
-    .select({ productId: menuProduct.productId })
+    .select({
+      itemType: menuProduct.itemType,
+      itemId: menuProduct.itemId,
+      sizeOptionId: menuProduct.sizeOptionId,
+    })
     .from(menuProduct)
     .where(eq(menuProduct.id, menuProductId));
 
@@ -401,17 +554,56 @@ export async function updateMenuProduct(
     return { error: "Item não encontrado" };
   }
 
-  // Get product base cost
-  const prod = await db
-    .select({ baseCost: product.baseCost })
-    .from(product)
-    .where(eq(product.id, current[0].productId));
+  // Get item base cost based on type
+  let baseCost = 0;
 
-  if (!prod[0]) {
-    return { error: "Produto não encontrado" };
+  if (current[0].itemType === "product") {
+    const prod = await db
+      .select({ baseCost: product.baseCost })
+      .from(product)
+      .where(eq(product.id, current[0].itemId));
+
+    if (!prod[0]) {
+      return { error: "Produto não encontrado" };
+    }
+
+    baseCost = parseFloat(prod[0].baseCost);
+
+    // If item has sizeOptionId, apply multiplier
+    if (current[0].sizeOptionId) {
+      const sizeOpt = await db
+        .select({ multiplier: sizeOption.multiplier })
+        .from(sizeOption)
+        .where(eq(sizeOption.id, current[0].sizeOptionId));
+
+      if (sizeOpt[0]) {
+        baseCost = baseCost * parseFloat(sizeOpt[0].multiplier);
+      }
+    }
+  } else if (current[0].itemType === "ingredient") {
+    const ing = await db
+      .select({ averagePrice: ingredient.averagePrice })
+      .from(ingredient)
+      .where(eq(ingredient.id, current[0].itemId));
+
+    if (!ing[0]) {
+      return { error: "Insumo não encontrado" };
+    }
+
+    baseCost = parseFloat(ing[0].averagePrice);
+  } else if (current[0].itemType === "recipe") {
+    const rec = await db
+      .select({ totalCost: recipe.totalCost })
+      .from(recipe)
+      .where(eq(recipe.id, current[0].itemId));
+
+    if (!rec[0]) {
+      return { error: "Receita não encontrada" };
+    }
+
+    baseCost = parseFloat(rec[0].totalCost);
   }
 
-  const baseCost = parseFloat(prod[0].baseCost);
   const salePriceNum = parseFloat(salePrice);
 
   // Get menu fees to calculate total cost
@@ -608,15 +800,17 @@ export async function removeMenuFee(
   return { success: true };
 }
 
-// Helper: Recalculate all products costs when fees or fixed costs change
+// Helper: Recalculate all items costs when fees or fixed costs change
 async function recalculateMenuProductsCosts(workspaceSlug: string, menuId: string) {
   const workspace = await getWorkspaceBySlug(workspaceSlug);
   if (!workspace) return;
 
-  const products = await db
+  const items = await db
     .select({
       id: menuProduct.id,
-      productId: menuProduct.productId,
+      itemType: menuProduct.itemType,
+      itemId: menuProduct.itemId,
+      sizeOptionId: menuProduct.sizeOptionId,
       salePrice: menuProduct.salePrice,
     })
     .from(menuProduct)
@@ -656,15 +850,51 @@ async function recalculateMenuProductsCosts(workspaceSlug: string, menuId: strin
     0
   );
 
-  for (const mp of products) {
-    const prod = await db
-      .select({ baseCost: product.baseCost })
-      .from(product)
-      .where(eq(product.id, mp.productId));
+  for (const mp of items) {
+    let baseCost = 0;
 
-    if (!prod[0]) continue;
+    // Get base cost based on item type
+    if (mp.itemType === "product") {
+      const prod = await db
+        .select({ baseCost: product.baseCost })
+        .from(product)
+        .where(eq(product.id, mp.itemId));
 
-    const baseCost = parseFloat(prod[0].baseCost);
+      if (!prod[0]) continue;
+
+      baseCost = parseFloat(prod[0].baseCost);
+
+      // Apply size multiplier if applicable
+      if (mp.sizeOptionId) {
+        const sizeOpt = await db
+          .select({ multiplier: sizeOption.multiplier })
+          .from(sizeOption)
+          .where(eq(sizeOption.id, mp.sizeOptionId));
+
+        if (sizeOpt[0]) {
+          baseCost = baseCost * parseFloat(sizeOpt[0].multiplier);
+        }
+      }
+    } else if (mp.itemType === "ingredient") {
+      const ing = await db
+        .select({ averagePrice: ingredient.averagePrice })
+        .from(ingredient)
+        .where(eq(ingredient.id, mp.itemId));
+
+      if (!ing[0]) continue;
+
+      baseCost = parseFloat(ing[0].averagePrice);
+    } else if (mp.itemType === "recipe") {
+      const rec = await db
+        .select({ totalCost: recipe.totalCost })
+        .from(recipe)
+        .where(eq(recipe.id, mp.itemId));
+
+      if (!rec[0]) continue;
+
+      baseCost = parseFloat(rec[0].totalCost);
+    }
+
     const salePriceNum = parseFloat(mp.salePrice);
 
     // Calculate fees cost
@@ -710,35 +940,173 @@ async function recalculateMenuProductsCosts(workspaceSlug: string, menuId: strin
   }
 }
 
-// Get available products for menu (not already in this menu)
-export async function getAvailableProductsForMenu(workspaceSlug: string, menuId: string) {
+// Get available items for menu (products, ingredients, recipes)
+export async function getAvailableItemsForMenu(workspaceSlug: string, menuId: string) {
   await requireSession();
   const workspace = await getWorkspaceBySlug(workspaceSlug);
 
   if (!workspace) {
-    return [];
+    return { products: [], ingredients: [], recipes: [] };
   }
 
-  // Get products already in menu
-  const existingProducts = await db
-    .select({ productId: menuProduct.productId })
+  // Get items already in menu
+  const existingItems = await db
+    .select({
+      itemType: menuProduct.itemType,
+      itemId: menuProduct.itemId,
+      sizeOptionId: menuProduct.sizeOptionId,
+    })
     .from(menuProduct)
     .where(eq(menuProduct.menuId, menuId));
 
-  const existingIds = existingProducts.map((p) => p.productId);
-
-  // Get all active products
+  // Get all active products with size group info (only those available for sale)
   const products = await db
     .select({
       id: product.id,
       name: product.name,
       baseCost: product.baseCost,
+      sizeGroupId: product.sizeGroupId,
+      sizeGroupName: sizeGroup.name,
     })
     .from(product)
-    .where(and(eq(product.workspaceId, workspace.id), eq(product.active, true)));
+    .leftJoin(sizeGroup, eq(product.sizeGroupId, sizeGroup.id))
+    .where(and(
+      eq(product.workspaceId, workspace.id),
+      eq(product.active, true),
+      eq(product.availableForSale, true)
+    ));
 
-  // Filter out existing
-  return products.filter((p) => !existingIds.includes(p.id));
+  // For each product, get size options if it has a size group
+  const productsWithSizes = await Promise.all(
+    products.map(async (prod) => {
+      if (!prod.sizeGroupId) {
+        // Simple product - check if already in menu
+        const isInMenu = existingItems.some(
+          (e) => e.itemType === "product" && e.itemId === prod.id && !e.sizeOptionId
+        );
+        return {
+          ...prod,
+          sizeOptions: [],
+          isInMenu,
+        };
+      }
+
+      // Product with sizes - get options
+      const options = await db
+        .select({
+          id: sizeOption.id,
+          name: sizeOption.name,
+          multiplier: sizeOption.multiplier,
+          isReference: sizeOption.isReference,
+          sortOrder: sizeOption.sortOrder,
+        })
+        .from(sizeOption)
+        .where(eq(sizeOption.sizeGroupId, prod.sizeGroupId))
+        .orderBy(sizeOption.sortOrder);
+
+      const baseCost = parseFloat(prod.baseCost);
+      const sizeOptionsWithCost = options.map((opt) => ({
+        ...opt,
+        calculatedCost: (baseCost * parseFloat(opt.multiplier)).toFixed(4),
+        isInMenu: existingItems.some(
+          (e) => e.itemType === "product" && e.itemId === prod.id && e.sizeOptionId === opt.id
+        ),
+      }));
+
+      // Check if all sizes are in menu
+      const allInMenu = sizeOptionsWithCost.every((opt) => opt.isInMenu);
+
+      return {
+        ...prod,
+        sizeOptions: sizeOptionsWithCost,
+        isInMenu: allInMenu,
+      };
+    })
+  );
+
+  // Get ingredients available for sale
+  const ingredientsData = await db
+    .select({
+      id: ingredient.id,
+      name: ingredient.name,
+      averagePrice: ingredient.averagePrice,
+      unitAbbreviation: unit.abbreviation,
+    })
+    .from(ingredient)
+    .leftJoin(unit, eq(ingredient.priceUnitId, unit.id))
+    .where(and(
+      eq(ingredient.workspaceId, workspace.id),
+      eq(ingredient.availableForSale, true)
+    ))
+    .orderBy(ingredient.name);
+
+  const ingredientsWithStatus = ingredientsData.map((ing) => ({
+    ...ing,
+    baseCost: ing.averagePrice,
+    isInMenu: existingItems.some(
+      (e) => e.itemType === "ingredient" && e.itemId === ing.id
+    ),
+  }));
+
+  // Get recipes available for sale
+  const recipesData = await db
+    .select({
+      id: recipe.id,
+      name: recipe.name,
+      totalCost: recipe.totalCost,
+      yieldQuantity: recipe.yieldQuantity,
+      unitAbbreviation: unit.abbreviation,
+    })
+    .from(recipe)
+    .leftJoin(unit, eq(recipe.yieldUnitId, unit.id))
+    .where(and(
+      eq(recipe.workspaceId, workspace.id),
+      eq(recipe.availableForSale, true)
+    ))
+    .orderBy(recipe.name);
+
+  const recipesWithStatus = recipesData.map((rec) => ({
+    ...rec,
+    baseCost: rec.totalCost,
+    isInMenu: existingItems.some(
+      (e) => e.itemType === "recipe" && e.itemId === rec.id
+    ),
+  }));
+
+  return {
+    products: productsWithSizes,
+    ingredients: ingredientsWithStatus,
+    recipes: recipesWithStatus,
+  };
+}
+
+// Legacy alias for backwards compatibility
+export async function getAvailableProductsForMenu(workspaceSlug: string, menuId: string) {
+  const result = await getAvailableItemsForMenu(workspaceSlug, menuId);
+  return result.products;
+}
+
+// Add all size options of a product to the menu
+export async function addAllProductSizesToMenu(
+  workspaceSlug: string,
+  menuId: string,
+  productId: string,
+  prices: { sizeOptionId: string; salePrice: string }[]
+) {
+  await requireSession();
+
+  const results = [];
+  for (const price of prices) {
+    const formData = new FormData();
+    formData.set("productId", productId);
+    formData.set("sizeOptionId", price.sizeOptionId);
+    formData.set("salePrice", price.salePrice);
+
+    const result = await addMenuProduct(workspaceSlug, menuId, formData);
+    results.push(result);
+  }
+
+  return { success: true, results };
 }
 
 // Get workspace fixed costs total
@@ -792,4 +1160,223 @@ export async function updateMenuApportionment(
 
   revalidatePath(`/${workspaceSlug}/menus/${menuId}`);
   return { success: true };
+}
+
+// Update menu target margin
+export async function updateMenuTargetMargin(
+  workspaceSlug: string,
+  menuId: string,
+  targetMargin: string,
+  updateExistingProducts: boolean = false,
+  oldTargetMargin?: number
+) {
+  await requireSession();
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+
+  if (!workspace) {
+    return { error: "Workspace não encontrado" };
+  }
+
+  await db
+    .update(menu)
+    .set({
+      targetMargin,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(menu.id, menuId), eq(menu.workspaceId, workspace.id)));
+
+  // Recalculate product prices if requested (only products at old margin)
+  if (updateExistingProducts && oldTargetMargin !== undefined) {
+    await recalculateMenuProductPrices(workspaceSlug, menuId, parseFloat(targetMargin), oldTargetMargin);
+  }
+
+  revalidatePath(`/${workspaceSlug}/menus/${menuId}`);
+  return { success: true };
+}
+
+// Recalculate menu product prices based on target margin
+// Only updates products whose current margin matches the old target margin (±0.5%)
+async function recalculateMenuProductPrices(
+  workspaceSlug: string,
+  menuId: string,
+  newTargetMarginPct: number,
+  oldTargetMarginPct: number
+) {
+  const workspace = await getWorkspaceBySlug(workspaceSlug);
+  if (!workspace) return;
+
+  // Get menu settings
+  const menuData = await db
+    .select({
+      apportionmentType: menu.apportionmentType,
+      apportionmentValue: menu.apportionmentValue,
+    })
+    .from(menu)
+    .where(eq(menu.id, menuId));
+
+  if (!menuData[0]) return;
+
+  const apportionmentType = menuData[0].apportionmentType;
+  const apportionmentValue = parseFloat(menuData[0].apportionmentValue || "0");
+
+  // Get fees
+  const fees = await db
+    .select({
+      type: menuFee.type,
+      value: menuFee.value,
+      active: menuFee.active,
+    })
+    .from(menuFee)
+    .where(eq(menuFee.menuId, menuId));
+
+  // Calculate fee totals
+  let fixedFees = 0;
+  let percentageFees = 0;
+  for (const fee of fees) {
+    if (!fee.active) continue;
+    if (fee.type === "fixed") {
+      fixedFees += parseFloat(fee.value);
+    } else {
+      percentageFees += parseFloat(fee.value);
+    }
+  }
+
+  // Get total monthly fixed costs
+  const workspaceFixedCosts = await db
+    .select({ value: fixedCost.value })
+    .from(fixedCost)
+    .where(and(eq(fixedCost.workspaceId, workspace.id), eq(fixedCost.active, true)));
+
+  const totalMonthlyFixedCost = workspaceFixedCosts.reduce(
+    (sum, fc) => sum + parseFloat(fc.value),
+    0
+  );
+
+  // Get all menu items with their current margin
+  const items = await db
+    .select({
+      id: menuProduct.id,
+      itemType: menuProduct.itemType,
+      itemId: menuProduct.itemId,
+      sizeOptionId: menuProduct.sizeOptionId,
+      marginPercentage: menuProduct.marginPercentage,
+    })
+    .from(menuProduct)
+    .where(eq(menuProduct.menuId, menuId));
+
+  // Tolerance for margin comparison (±0.5%)
+  const MARGIN_TOLERANCE = 0.5;
+
+  // Recalculate only items at the old target margin
+  for (const mp of items) {
+    // Check if item margin is close to old target margin
+    const currentMargin = parseFloat(mp.marginPercentage);
+    if (Math.abs(currentMargin - oldTargetMarginPct) > MARGIN_TOLERANCE) {
+      // Item was manually adjusted, skip it
+      continue;
+    }
+
+    // Get item base cost based on type
+    let baseCost = 0;
+
+    if (mp.itemType === "product") {
+      const prod = await db
+        .select({ baseCost: product.baseCost })
+        .from(product)
+        .where(eq(product.id, mp.itemId));
+
+      if (!prod[0]) continue;
+
+      baseCost = parseFloat(prod[0].baseCost);
+
+      // Apply size multiplier if applicable
+      if (mp.sizeOptionId) {
+        const sizeOpt = await db
+          .select({ multiplier: sizeOption.multiplier })
+          .from(sizeOption)
+          .where(eq(sizeOption.id, mp.sizeOptionId));
+
+        if (sizeOpt[0]) {
+          baseCost = baseCost * parseFloat(sizeOpt[0].multiplier);
+        }
+      }
+    } else if (mp.itemType === "ingredient") {
+      const ing = await db
+        .select({ averagePrice: ingredient.averagePrice })
+        .from(ingredient)
+        .where(eq(ingredient.id, mp.itemId));
+
+      if (!ing[0]) continue;
+
+      baseCost = parseFloat(ing[0].averagePrice);
+    } else if (mp.itemType === "recipe") {
+      const rec = await db
+        .select({ totalCost: recipe.totalCost })
+        .from(recipe)
+        .where(eq(recipe.id, mp.itemId));
+
+      if (!rec[0]) continue;
+
+      baseCost = parseFloat(rec[0].totalCost);
+    }
+
+    // Calculate additional fixed cost based on apportionment type
+    let additionalFixedCost = 0;
+    let percentageFixedCost = 0;
+
+    if (totalMonthlyFixedCost > 0 && apportionmentValue > 0) {
+      if (apportionmentType === "percentage_of_sale") {
+        percentageFixedCost = apportionmentValue;
+      } else if (apportionmentType === "fixed_per_product") {
+        additionalFixedCost = apportionmentValue;
+      } else if (apportionmentType === "proportional_to_sales") {
+        additionalFixedCost = totalMonthlyFixedCost / apportionmentValue;
+      }
+    }
+
+    // Calculate suggested price
+    // Formula: sale_price = (base_cost + fixed_fees + additional_fixed_cost) / (1 - margin_pct - percentage_fees - percentage_fixed_cost)
+    const denominator = 1 - (newTargetMarginPct / 100) - (percentageFees / 100) - (percentageFixedCost / 100);
+
+    if (denominator <= 0) {
+      // Skip products where margin is too high
+      continue;
+    }
+
+    const newSalePrice = (baseCost + fixedFees + additionalFixedCost) / denominator;
+
+    // Calculate costs for this price
+    let feesCost = fixedFees + (newSalePrice * (percentageFees / 100));
+    let fixedCostApportionment = 0;
+
+    if (totalMonthlyFixedCost > 0 && apportionmentValue > 0) {
+      switch (apportionmentType) {
+        case "percentage_of_sale":
+          fixedCostApportionment = newSalePrice * (apportionmentValue / 100);
+          break;
+        case "fixed_per_product":
+          fixedCostApportionment = apportionmentValue;
+          break;
+        case "proportional_to_sales":
+          fixedCostApportionment = totalMonthlyFixedCost / apportionmentValue;
+          break;
+      }
+    }
+
+    const totalCost = baseCost + feesCost + fixedCostApportionment;
+    const marginValue = newSalePrice - totalCost;
+    const marginPercentage = newSalePrice > 0 ? (marginValue / newSalePrice) * 100 : 0;
+
+    // Update the product
+    await db
+      .update(menuProduct)
+      .set({
+        salePrice: newSalePrice.toFixed(4),
+        totalCost: totalCost.toFixed(4),
+        marginValue: marginValue.toFixed(4),
+        marginPercentage: marginPercentage.toFixed(4),
+        updatedAt: new Date(),
+      })
+      .where(eq(menuProduct.id, mp.id));
+  }
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addRecipeStep, removeRecipeStep } from "@/actions/recipes";
+import { addRecipeStep, updateRecipeStep, removeRecipeStep } from "@/actions/recipes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { IconPlus, IconTrash, IconPencil, IconLoader2 } from "@tabler/icons-react";
 
 interface RecipeStep {
   id: string;
@@ -43,6 +51,12 @@ export function RecipeStepsSection({
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Edit state
+  const [editingStep, setEditingStep] = useState<RecipeStep | null>(null);
+  const [editDescription, setEditDescription] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     try {
@@ -63,13 +77,42 @@ export function RecipeStepsSection({
     router.refresh();
   }
 
+  function openEditDialog(step: RecipeStep) {
+    setEditingStep(step);
+    setEditDescription(step.description);
+    setEditTime(step.time?.toString() || "");
+  }
+
+  async function handleEditSubmit() {
+    if (!editingStep) return;
+
+    setEditLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("description", editDescription);
+      if (editTime) {
+        formData.append("time", editTime);
+      }
+
+      const result = await updateRecipeStep(workspaceSlug, recipeId, editingStep.id, formData);
+      if (result.success) {
+        setEditingStep(null);
+        router.refresh();
+      } else {
+        alert(result.error);
+      }
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Modo de Preparo</CardTitle>
         {!showForm && (
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            <IconPlus className="w-4 h-4 mr-1" />
+          <Button onClick={() => setShowForm(true)}>
+            <IconPlus />
             Adicionar Passo
           </Button>
         )}
@@ -99,13 +142,12 @@ export function RecipeStepsSection({
               />
             </div>
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                 {loading ? "Adicionando..." : "Adicionar"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={() => setShowForm(false)}
               >
                 Cancelar
@@ -131,10 +173,17 @@ export function RecipeStepsSection({
                     <span className="text-xs text-muted-foreground">{step.time} min</span>
                   )}
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openEditDialog(step)}
+                >
+                  <IconPencil className="h-4 w-4" />
+                </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-red-600">
-                      <IconTrash className="w-4 h-4" />
+                    <Button variant="ghost" size="icon" className="text-red-600">
+                      <IconTrash />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -159,6 +208,55 @@ export function RecipeStepsSection({
             ))}
           </ol>
         )}
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editingStep} onOpenChange={(open) => !open && setEditingStep(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Passo {editingStep?.order}</DialogTitle>
+              <DialogDescription>
+                Atualize a descrição e o tempo do passo
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="editDescription">Descrição</Label>
+                <Textarea
+                  id="editDescription"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editTime">Tempo (minutos)</Label>
+                <Input
+                  id="editTime"
+                  type="number"
+                  min="1"
+                  value={editTime}
+                  onChange={(e) => setEditTime(e.target.value)}
+                  className="w-32"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingStep(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleEditSubmit} disabled={editLoading || !editDescription.trim()}>
+                {editLoading ? (
+                  <>
+                    <IconLoader2 className="h-4 w-4 animate-spin mr-2" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

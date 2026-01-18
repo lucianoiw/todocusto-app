@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createMenu } from "@/actions/menus";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -76,7 +77,7 @@ export default async function NewMenuPage({ params }: NewMenuPageProps) {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Criar Cardápio</Button>
+              <SubmitButton loadingText="Criando...">Criar Cardápio</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/menus`}>Cancelar</Link>
               </Button>

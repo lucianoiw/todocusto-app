@@ -4,7 +4,7 @@ import { getRecipe, getRecipeItems, getRecipeSteps } from "@/actions/recipes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { IconArrowLeft, IconPencil, IconClock, IconPlus } from "@tabler/icons-react";
+import { IconArrowLeft, IconPencil, IconClock, IconPlus, IconAlertCircle } from "@tabler/icons-react";
 import { RecipeItemsSection } from "./items-section";
 import { RecipeStepsSection } from "./steps-section";
 
@@ -77,33 +77,47 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
                   )}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Custo total</div>
-                <div className="text-2xl font-bold">
+              <div className="text-right space-y-1">
+                <div className="text-sm text-muted-foreground">Custo de insumos</div>
+                <div className="text-lg font-semibold">
                   R$ {parseFloat(recipe.totalCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  R$ {parseFloat(recipe.costPerPortion).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} por{" "}
-                  {recipe.yieldUnitAbbreviation}
-                </div>
-                {recipe.yieldUnitConversionFactor &&
-                  parseFloat(recipe.yieldUnitConversionFactor) !== 1 && (
+                {parseFloat(recipe.laborCost) > 0 && (
+                  <>
                     <div className="text-sm text-muted-foreground">
-                      R${" "}
-                      {(
-                        parseFloat(recipe.costPerPortion) /
-                        parseFloat(recipe.yieldUnitConversionFactor)
-                      ).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}{" "}
-                      por{" "}
-                      {recipe.yieldUnitMeasurementType === "weight"
-                        ? "g"
-                        : recipe.yieldUnitMeasurementType === "volume"
-                          ? "ml"
-                          : "un"}
+                      Mão de obra ({recipe.prepTime || 0} min)
                     </div>
-                  )}
+                    <div className="text-lg font-semibold">
+                      R$ {parseFloat(recipe.laborCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </>
+                )}
+                <div className="pt-2 border-t">
+                  <div className="text-sm text-muted-foreground">Custo total</div>
+                  <div className="text-2xl font-bold">
+                    R$ {(parseFloat(recipe.totalCost) + parseFloat(recipe.laborCost)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    R$ {parseFloat(recipe.costPerPortion).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por{" "}
+                    {recipe.yieldUnitAbbreviation}
+                  </div>
+                </div>
               </div>
             </div>
+            {!recipe.hasLaborCostConfigured && (recipe.prepTime || (recipe.totalTime && recipe.totalTime > 0)) && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <IconAlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+                  <p>
+                    Configure o{" "}
+                    <Link href={`/${workspaceSlug}/settings`} className="text-primary hover:underline">
+                      custo de mão de obra
+                    </Link>{" "}
+                    nas configurações para incluir o tempo de preparo no custo total.
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

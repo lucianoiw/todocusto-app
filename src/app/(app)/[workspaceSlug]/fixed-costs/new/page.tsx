@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createFixedCost } from "@/actions/fixed-costs";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -93,7 +94,7 @@ export default async function NewFixedCostPage({ params }: NewFixedCostPageProps
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Criar Custo Fixo</Button>
+              <SubmitButton loadingText="Criando...">Criar Custo Fixo</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/fixed-costs`}>Cancelar</Link>
               </Button>

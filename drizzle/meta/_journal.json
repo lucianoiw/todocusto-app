@@ -8,6 +8,48 @@
       "when": 1768064287804,
       "tag": "0000_left_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768596304289,
+      "tag": "0001_lean_kate_bishop",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1768599687373,
+      "tag": "0002_aspiring_wraith",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768600266306,
+      "tag": "0003_uneven_owl",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768607835904,
+      "tag": "0004_broad_sunset_bain",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1768609175438,
+      "tag": "0005_melted_captain_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1737080800000,
+      "tag": "0006_menu_item_types",
+      "breakpoints": true
     }
   ]
 }

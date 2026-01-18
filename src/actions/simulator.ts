@@ -12,6 +12,8 @@ import {
   menuProduct,
   menu,
   unit,
+  category,
+  sizeOption,
 } from "@/lib/db/schema";
 import { getWorkspaceBySlug } from "./workspace";
 
@@ -36,6 +38,7 @@ export interface SimulationResult {
   affectedRecipes: {
     id: string;
     name: string;
+    categoryName: string | null;
     currentCost: number;
     newCost: number;
     difference: number;
@@ -44,6 +47,7 @@ export interface SimulationResult {
   affectedProducts: {
     id: string;
     name: string;
+    categoryName: string | null;
     currentCost: number;
     newCost: number;
     difference: number;
@@ -52,6 +56,8 @@ export interface SimulationResult {
   affectedMenuProducts: {
     id: string;
     productName: string;
+    sizeOptionName: string | null;
+    categoryName: string | null;
     menuName: string;
     salePrice: number;
     currentCost: number;
@@ -119,9 +125,11 @@ export async function simulatePriceChange(
       priceUnitName: unit.name,
       priceUnitAbbreviation: unit.abbreviation,
       conversionFactor: unit.conversionFactor,
+      categoryName: category.name,
     })
     .from(ingredient)
     .leftJoin(unit, eq(ingredient.priceUnitId, unit.id))
+    .leftJoin(category, eq(ingredient.categoryId, category.id))
     .where(
       and(eq(ingredient.id, ingredientId), eq(ingredient.workspaceId, workspace.id))
     );
@@ -182,8 +190,10 @@ export async function simulatePriceChange(
         id: recipe.id,
         name: recipe.name,
         totalCost: recipe.totalCost,
+        categoryName: category.name,
       })
       .from(recipe)
+      .leftJoin(category, eq(recipe.categoryId, category.id))
       .where(inArray(recipe.id, affectedRecipeIds));
 
     // Calculate new recipe costs
@@ -205,6 +215,7 @@ export async function simulatePriceChange(
       affectedRecipes.push({
         id: r.id,
         name: r.name,
+        categoryName: r.categoryName,
         currentCost,
         newCost,
         difference: costDifference,
@@ -235,8 +246,10 @@ export async function simulatePriceChange(
         id: product.id,
         name: product.name,
         baseCost: product.baseCost,
+        categoryName: category.name,
       })
       .from(product)
+      .leftJoin(category, eq(product.categoryId, category.id))
       .where(inArray(product.id, affectedProductIds));
 
     for (const p of products) {
@@ -264,6 +277,7 @@ export async function simulatePriceChange(
       affectedProducts.push({
         id: p.id,
         name: p.name,
+        categoryName: p.categoryName,
         currentCost,
         newCost,
         difference: costDifference,
@@ -274,11 +288,134 @@ export async function simulatePriceChange(
 
   // 4. Get affected menu products
   let affectedMenuProducts: SimulationResult["affectedMenuProducts"] = [];
+
+  // 4a. Check for direct ingredient usage in menus
+  const directIngredientMenuItems = await db
+    .select({
+      id: menuProduct.id,
+      itemId: menuProduct.itemId,
+      salePrice: menuProduct.salePrice,
+      totalCost: menuProduct.totalCost,
+      marginValue: menuProduct.marginValue,
+      marginPercentage: menuProduct.marginPercentage,
+      menuId: menuProduct.menuId,
+      menuName: menu.name,
+    })
+    .from(menuProduct)
+    .innerJoin(menu, eq(menuProduct.menuId, menu.id))
+    .where(
+      and(
+        eq(menuProduct.itemType, "ingredient"),
+        eq(menuProduct.itemId, ingredientId)
+      )
+    );
+
+  for (const mp of directIngredientMenuItems) {
+    const salePrice = parseFloat(mp.salePrice || "0");
+    const currentCost = parseFloat(mp.totalCost || "0");
+    const newCost = currentCost * priceRatio;
+
+    const currentMargin = salePrice - currentCost;
+    const newMargin = salePrice - newCost;
+    const currentMarginPercentage = salePrice > 0 ? (currentMargin / salePrice) * 100 : 0;
+    const newMarginPercentage = salePrice > 0 ? (newMargin / salePrice) * 100 : 0;
+
+    const marginDecimal = currentMarginPercentage / 100;
+    const suggestedPrice = marginDecimal > 0 && marginDecimal < 1
+      ? newCost / (1 - marginDecimal)
+      : newCost * 1.3;
+    const priceIncrease = Math.max(0, suggestedPrice - salePrice);
+
+    affectedMenuProducts.push({
+      id: mp.id,
+      productName: ingredientData.name,
+      sizeOptionName: null,
+      categoryName: ingredientData.categoryName,
+      menuName: mp.menuName,
+      salePrice,
+      currentCost,
+      newCost,
+      currentMargin,
+      newMargin,
+      currentMarginPercentage,
+      newMarginPercentage,
+      suggestedPrice,
+      priceIncrease,
+    });
+  }
+
+  // 4b. Check for direct recipe usage in menus
+  if (affectedRecipeIds.length > 0) {
+    const directRecipeMenuItems = await db
+      .select({
+        id: menuProduct.id,
+        itemId: menuProduct.itemId,
+        salePrice: menuProduct.salePrice,
+        totalCost: menuProduct.totalCost,
+        marginValue: menuProduct.marginValue,
+        marginPercentage: menuProduct.marginPercentage,
+        menuId: menuProduct.menuId,
+        menuName: menu.name,
+        recipeName: recipe.name,
+      })
+      .from(menuProduct)
+      .innerJoin(menu, eq(menuProduct.menuId, menu.id))
+      .innerJoin(recipe, eq(menuProduct.itemId, recipe.id))
+      .where(
+        and(
+          eq(menuProduct.itemType, "recipe"),
+          inArray(menuProduct.itemId, affectedRecipeIds)
+        )
+      );
+
+    for (const mp of directRecipeMenuItems) {
+      const affectedRecipe = affectedRecipes.find((r) => r.id === mp.itemId);
+      if (!affectedRecipe) continue;
+
+      const salePrice = parseFloat(mp.salePrice || "0");
+      const currentCost = parseFloat(mp.totalCost || "0");
+
+      const costRatio = affectedRecipe.currentCost > 0
+        ? affectedRecipe.newCost / affectedRecipe.currentCost
+        : 1;
+      const newCost = currentCost * costRatio;
+
+      const currentMargin = salePrice - currentCost;
+      const newMargin = salePrice - newCost;
+      const currentMarginPercentage = salePrice > 0 ? (currentMargin / salePrice) * 100 : 0;
+      const newMarginPercentage = salePrice > 0 ? (newMargin / salePrice) * 100 : 0;
+
+      const marginDecimal = currentMarginPercentage / 100;
+      const suggestedPrice = marginDecimal > 0 && marginDecimal < 1
+        ? newCost / (1 - marginDecimal)
+        : newCost * 1.3;
+      const priceIncrease = Math.max(0, suggestedPrice - salePrice);
+
+      affectedMenuProducts.push({
+        id: mp.id,
+        productName: mp.recipeName,
+        sizeOptionName: null,
+        categoryName: affectedRecipe.categoryName,
+        menuName: mp.menuName,
+        salePrice,
+        currentCost,
+        newCost,
+        currentMargin,
+        newMargin,
+        currentMarginPercentage,
+        newMarginPercentage,
+        suggestedPrice,
+        priceIncrease,
+      });
+    }
+  }
+
+  // 4c. Check for product-based menu items
   if (affectedProductIds.length > 0) {
     const menuProducts = await db
       .select({
         id: menuProduct.id,
-        productId: menuProduct.productId,
+        itemId: menuProduct.itemId,
         salePrice: menuProduct.salePrice,
         totalCost: menuProduct.totalCost,
         marginValue: menuProduct.marginValue,
@@ -286,14 +423,19 @@ export async function simulatePriceChange(
         productName: product.name,
         menuId: menuProduct.menuId,
         menuName: menu.name,
+        sizeOptionName: sizeOption.name,
       })
       .from(menuProduct)
-      .innerJoin(product, eq(menuProduct.productId, product.id))
+      .innerJoin(product, eq(menuProduct.itemId, product.id))
       .innerJoin(menu, eq(menuProduct.menuId, menu.id))
-      .where(inArray(menuProduct.productId, affectedProductIds));
+      .leftJoin(sizeOption, eq(menuProduct.sizeOptionId, sizeOption.id))
+      .where(and(
+        eq(menuProduct.itemType, "product"),
+        inArray(menuProduct.itemId, affectedProductIds)
+      ));
 
     for (const mp of menuProducts) {
-      const affectedProduct = affectedProducts.find((p) => p.id === mp.productId);
+      const affectedProduct = affectedProducts.find((p) => p.id === mp.itemId);
       if (!affectedProduct) continue;
 
       const salePrice = parseFloat(mp.salePrice || "0");
@@ -321,6 +463,8 @@ export async function simulatePriceChange(
       affectedMenuProducts.push({
         id: mp.id,
         productName: mp.productName,
+        sizeOptionName: mp.sizeOptionName,
+        categoryName: affectedProduct.categoryName,
         menuName: mp.menuName,
         salePrice,
         currentCost,

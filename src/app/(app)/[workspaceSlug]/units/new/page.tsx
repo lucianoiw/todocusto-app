@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createUnit } from "@/actions/units";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,7 +97,7 @@ export default async function NewUnitPage({ params }: NewUnitPageProps) {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Criar Unidade</Button>
+              <SubmitButton loadingText="Criando...">Criar Unidade</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/units`}>Cancelar</Link>
               </Button>

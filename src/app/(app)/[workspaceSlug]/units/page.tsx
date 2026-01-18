@@ -2,7 +2,15 @@ import Link from "next/link";
 import { getUnits, MeasurementType } from "@/actions/units";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { IconPlus, IconRuler2 } from "@tabler/icons-react";
 import { UnitsTable } from "./units-table";
 import { UnitsFilters } from "./units-filters";
 
@@ -64,24 +72,41 @@ export default async function UnitsPage({ params, searchParams }: UnitsPageProps
 
       {result.all.length === 0 && !hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhuma unidade cadastrada ainda.
-            </p>
-            <Button asChild>
-              <Link href={`/${workspaceSlug}/units/new`}>
-                <IconPlus className="w-4 h-4 mr-2" />
-                Criar primeira unidade
-              </Link>
-            </Button>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconRuler2 className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Nenhuma unidade cadastrada</EmptyTitle>
+                <EmptyDescription>
+                  Unidades de medida definem como você compra e usa seus insumos.
+                  Por exemplo: 1 dúzia = 12 unidades, 1 kg = 1000 g.
+                  O sistema usa essas conversões para calcular custos corretamente.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/units/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Cadastrar primeira unidade
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : result.all.length === 0 && hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Nenhuma unidade encontrada com os filtros aplicados.
-            </p>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Nenhuma unidade encontrada</EmptyTitle>
+                <EmptyDescription>
+                  Tente ajustar os filtros para encontrar o que procura.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : showAll ? (

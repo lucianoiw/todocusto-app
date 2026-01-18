@@ -124,14 +124,14 @@ export function MenuFeesSection({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="text-lg">Taxas e Custos</CardTitle>
+          <CardTitle className="text-lg">Taxas e Comissões</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Taxas aplicadas a todos os produtos deste cardápio
+            Comissões de marketplace, taxas de cartão, embalagens, etc.
           </p>
         </div>
         {!showForm && (
-          <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
-            <IconPlus className="w-4 h-4 mr-1" />
+          <Button variant="outline" onClick={() => setShowForm(true)}>
+            <IconPlus />
             Adicionar Taxa
           </Button>
         )}
@@ -184,13 +184,12 @@ export function MenuFeesSection({
             </div>
 
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                 {loading ? "Adicionando..." : "Adicionar"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={() => setShowForm(false)}
               >
                 Cancelar
@@ -234,15 +233,15 @@ export function MenuFeesSection({
                   </div>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => openEditDialog(fee)}
                   >
-                    <IconPencil className="w-4 h-4" />
+                    <IconPencil />
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-red-600">
-                        <IconTrash className="w-4 h-4" />
+                      <Button variant="ghost" size="icon" className="text-red-600">
+                        <IconTrash />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

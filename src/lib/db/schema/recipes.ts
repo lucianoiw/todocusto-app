@@ -4,6 +4,7 @@ import {
   timestamp,
   decimal,
   integer,
+  boolean,
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -34,7 +35,12 @@ export const recipe = pgTable("recipe", {
   prepTime: integer("prep_time"),
   tags: text("tags").array(),
   allergens: text("allergens").array(),
+  availableForSale: boolean("available_for_sale").notNull().default(false),
   totalCost: decimal("total_cost", { precision: 15, scale: 4 })
+    .notNull()
+    .default("0"),
+  totalTime: integer("total_time").default(0), // in minutes, sum of steps
+  laborCost: decimal("labor_cost", { precision: 15, scale: 4 })
     .notNull()
     .default("0"),
   costPerPortion: decimal("cost_per_portion", { precision: 15, scale: 4 })

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupplier } from "@/actions/suppliers";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -92,7 +93,7 @@ export default async function NewSupplierPage({ params }: NewSupplierPageProps) 
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Criar Fornecedor</Button>
+              <SubmitButton loadingText="Criando...">Criar Fornecedor</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/suppliers`}>Cancelar</Link>
               </Button>

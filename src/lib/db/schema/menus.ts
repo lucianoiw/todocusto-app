@@ -8,7 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { workspace } from "./workspace";
-import { product } from "./products";
+import { sizeOption } from "./sizes";
 
 export const apportionmentTypeEnum = pgEnum("apportionment_type", [
   "percentage_of_sale",
@@ -18,6 +18,14 @@ export const apportionmentTypeEnum = pgEnum("apportionment_type", [
 
 export const feeTypeEnum = pgEnum("fee_type", ["fixed", "percentage"]);
 
+export const menuItemTypeEnum = pgEnum("menu_item_type", [
+  "product",
+  "ingredient",
+  "recipe",
+]);
+
+export const pricingModeEnum = pgEnum("pricing_mode", ["margin", "markup"]);
+
 export const menu = pgTable("menu", {
   id: text("id").primaryKey(),
   workspaceId: text("workspace_id")
@@ -26,6 +34,10 @@ export const menu = pgTable("menu", {
   name: text("name").notNull(),
   description: text("description"),
   active: boolean("active").notNull().default(true),
+  targetMargin: decimal("target_margin", { precision: 5, scale: 2 })
+    .notNull()
+    .default("30"),
+  pricingMode: pricingModeEnum("pricing_mode").notNull().default("margin"),
   apportionmentType: apportionmentTypeEnum("apportionment_type")
     .notNull()
     .default("percentage_of_sale"),
@@ -79,9 +91,12 @@ export const menuProduct = pgTable("menu_product", {
   menuId: text("menu_id")
     .notNull()
     .references(() => menu.id, { onDelete: "cascade" }),
-  productId: text("product_id")
-    .notNull()
-    .references(() => product.id, { onDelete: "cascade" }),
+  itemType: menuItemTypeEnum("item_type").notNull().default("product"),
+  itemId: text("item_id").notNull(),
+  // Only used for products with size options
+  sizeOptionId: text("size_option_id").references(() => sizeOption.id, {
+    onDelete: "cascade",
+  }),
   salePrice: decimal("sale_price", { precision: 15, scale: 4 }).notNull(),
   totalCost: decimal("total_cost", { precision: 15, scale: 4 })
     .notNull()
@@ -95,6 +110,9 @@ export const menuProduct = pgTable("menu_product", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+// Alias for new name
+export const menuItem = menuProduct;
 
 // Relations
 export const menuRelations = relations(menu, ({ one, many }) => ({
@@ -138,8 +156,10 @@ export const menuProductRelations = relations(menuProduct, ({ one }) => ({
     fields: [menuProduct.menuId],
     references: [menu.id],
   }),
-  product: one(product, {
-    fields: [menuProduct.productId],
-    references: [product.id],
+  // Note: itemId can reference product, ingredient, or recipe
+  // Use itemType to determine which table to join
+  sizeOption: one(sizeOption, {
+    fields: [menuProduct.sizeOptionId],
+    references: [sizeOption.id],
   }),
 }));

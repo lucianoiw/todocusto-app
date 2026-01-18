@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { addRecipeItem, removeRecipeItem, getAvailableItemsForRecipe } from "@/actions/recipes";
+import { addRecipeItem, updateRecipeItem, removeRecipeItem, getAvailableItemsForRecipe } from "@/actions/recipes";
 import { getUnits } from "@/actions/units";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { IconPlus, IconTrash, IconChevronDown, IconSearch } from "@tabler/icons-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { IconPlus, IconTrash, IconChevronDown, IconSearch, IconPencil, IconLoader2 } from "@tabler/icons-react";
 
 interface RecipeItem {
   id: string;
@@ -89,6 +97,13 @@ export function RecipeItemsSection({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Edit state
+  const [editingItem, setEditingItem] = useState<RecipeItem | null>(null);
+  const [editQuantity, setEditQuantity] = useState("");
+  const [editUnitId, setEditUnitId] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [editUnits, setEditUnits] = useState<Unit[]>([]);
+
   // Focus search input when popover opens
   useEffect(() => {
     if (popoverOpen && searchInputRef.current) {
@@ -102,21 +117,32 @@ export function RecipeItemsSection({
     return units.filter((u) => u.measurementType === selectedItem.measurementType);
   }, [units, selectedItem?.measurementType]);
 
-  // Filter items based on search query
+  // Sort function for alphabetical order
+  const sortByName = (a: AvailableItem, b: AvailableItem) =>
+    a.displayName.localeCompare(b.displayName, "pt-BR");
+
+  // Filter and sort items based on search query
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    if (!query) return availableItems;
+
+    if (!query) {
+      return {
+        ingredients: [...availableItems.ingredients].sort(sortByName),
+        variations: [...availableItems.variations].sort(sortByName),
+        recipes: [...availableItems.recipes].sort(sortByName),
+      };
+    }
 
     return {
-      ingredients: availableItems.ingredients.filter(item =>
-        item.displayName.toLowerCase().includes(query)
-      ),
-      variations: availableItems.variations.filter(item =>
-        item.displayName.toLowerCase().includes(query)
-      ),
-      recipes: availableItems.recipes.filter(item =>
-        item.displayName.toLowerCase().includes(query)
-      ),
+      ingredients: availableItems.ingredients
+        .filter(item => item.displayName.toLowerCase().includes(query))
+        .sort(sortByName),
+      variations: availableItems.variations
+        .filter(item => item.displayName.toLowerCase().includes(query))
+        .sort(sortByName),
+      recipes: availableItems.recipes
+        .filter(item => item.displayName.toLowerCase().includes(query))
+        .sort(sortByName),
     };
   }, [availableItems, searchQuery]);
 
@@ -164,6 +190,45 @@ export function RecipeItemsSection({
     if (item.unitId) setUnitId(item.unitId);
     setSearchQuery("");
     setPopoverOpen(false);
+  }
+
+  async function openEditDialog(item: RecipeItem) {
+    // Load units for edit
+    const unitsResult = await getUnits(workspaceSlug);
+    // Find the item's measurement type to filter units
+    const itemMeasurementType = item.type === "ingredient" || item.type === "variation"
+      ? unitsResult.all.find(u => u.id === item.unitId)?.measurementType
+      : unitsResult.all.find(u => u.id === item.unitId)?.measurementType;
+
+    const filteredUnits = itemMeasurementType
+      ? unitsResult.all.filter(u => u.measurementType === itemMeasurementType)
+      : unitsResult.all;
+
+    setEditUnits(filteredUnits);
+    setEditingItem(item);
+    setEditQuantity(item.quantity);
+    setEditUnitId(item.unitId);
+  }
+
+  async function handleEditSubmit() {
+    if (!editingItem) return;
+
+    setEditLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("quantity", editQuantity);
+      formData.append("unitId", editUnitId);
+
+      const result = await updateRecipeItem(workspaceSlug, recipeId, editingItem.id, formData);
+      if (result.success) {
+        setEditingItem(null);
+        router.refresh();
+      } else {
+        alert(result.error);
+      }
+    } finally {
+      setEditLoading(false);
+    }
   }
 
   const typeLabels = {
@@ -356,7 +421,7 @@ export function RecipeItemsSection({
                   <th className="pb-2 font-medium">Tipo</th>
                   <th className="pb-2 font-medium text-right">Quantidade</th>
                   <th className="pb-2 font-medium text-right">Custo</th>
-                  <th className="pb-2 w-10"></th>
+                  <th className="pb-2 w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -374,8 +439,16 @@ export function RecipeItemsSection({
                     <td className="py-2 text-right font-medium">
                       R$ {parseFloat(item.calculatedCost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="py-2 text-right">
-                      <AlertDialog>
+                    <td className="py-2">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(item)}
+                        >
+                          <IconPencil className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                             <IconTrash />
@@ -398,7 +471,8 @@ export function RecipeItemsSection({
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
-                      </AlertDialog>
+                        </AlertDialog>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -415,6 +489,61 @@ export function RecipeItemsSection({
             </table>
           </div>
         )}
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Item</DialogTitle>
+              <DialogDescription>
+                Atualize a quantidade ou unidade de {editingItem?.itemName}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="editQuantity">Quantidade</Label>
+                <Input
+                  id="editQuantity"
+                  type="number"
+                  step="0.0001"
+                  min="0.0001"
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Unidade</Label>
+                <Select value={editUnitId} onValueChange={setEditUnitId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editUnits.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.abbreviation} ({u.name})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingItem(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleEditSubmit} disabled={editLoading || !editQuantity || !editUnitId}>
+                {editLoading ? (
+                  <>
+                    <IconLoader2 className="h-4 w-4 animate-spin mr-2" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

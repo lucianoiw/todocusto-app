@@ -48,8 +48,8 @@ export function DeleteMenuButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm">
-          <IconTrash className="w-4 h-4 mr-2" />
+        <Button variant="destructive">
+          <IconTrash />
           Excluir cardápio
         </Button>
       </AlertDialogTrigger>

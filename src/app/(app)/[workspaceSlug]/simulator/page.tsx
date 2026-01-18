@@ -1,5 +1,16 @@
-import { IconChartLine } from "@tabler/icons-react";
+import Link from "next/link";
+import { IconChartLine, IconBox, IconPlus } from "@tabler/icons-react";
 import { getIngredientsForSimulation } from "@/actions/simulator";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { SimulatorForm } from "./simulator-form";
 
 interface SimulatorPageProps {
@@ -22,7 +33,35 @@ export default async function SimulatorPage({ params }: SimulatorPageProps) {
         </p>
       </div>
 
-      <SimulatorForm workspaceSlug={workspaceSlug} ingredients={ingredients} />
+      {ingredients.length === 0 ? (
+        <Card>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconBox className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Cadastre insumos para usar o simulador</EmptyTitle>
+                <EmptyDescription>
+                  Quando você altera o custo de um insumo, pode usar o simulador
+                  para ver o impacto dessa mudança em seus cardápios, entendendo
+                  se precisa ou não ajustar os preços dos produtos.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/ingredients/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Cadastrar primeiro insumo
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
+          </CardContent>
+        </Card>
+      ) : (
+        <SimulatorForm workspaceSlug={workspaceSlug} ingredients={ingredients} />
+      )}
     </div>
   );
 }

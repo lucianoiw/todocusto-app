@@ -3,7 +3,15 @@ import { getRecipes } from "@/actions/recipes";
 import { getCategories } from "@/actions/categories";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
 import { RecipesTable } from "./recipes-table";
 import { RecipesFilters } from "./recipes-filters";
 import { RecipesPagination } from "./recipes-pagination";
@@ -56,24 +64,41 @@ export default async function RecipesPage({ params, searchParams }: RecipesPageP
 
       {recipes.length === 0 && !hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhuma receita cadastrada ainda.
-            </p>
-            <Button asChild>
-              <Link href={`/${workspaceSlug}/recipes/new`}>
-                <IconPlus className="w-4 h-4 mr-2" />
-                Criar primeira receita
-              </Link>
-            </Button>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconToolsKitchen2 className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Nenhuma receita cadastrada</EmptyTitle>
+                <EmptyDescription>
+                  Receitas são preparações que combinam insumos ou outras receitas para
+                  calcular o custo automaticamente. Uma receita pode ser usada como
+                  componente de um produto ou vendida diretamente no cardápio.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/recipes/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Cadastrar primeira receita
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : recipes.length === 0 && hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Nenhuma receita encontrada com os filtros aplicados.
-            </p>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Nenhuma receita encontrada</EmptyTitle>
+                <EmptyDescription>
+                  Tente ajustar os filtros para encontrar o que procura.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (

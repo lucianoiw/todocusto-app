@@ -10,6 +10,7 @@ import { relations } from "drizzle-orm";
 import { workspace } from "./workspace";
 import { category } from "./categories";
 import { unit } from "./units";
+import { sizeGroup } from "./sizes";
 
 export const productItemTypeEnum = pgEnum("product_item_type", [
   "ingredient",
@@ -28,10 +29,14 @@ export const product = pgTable("product", {
   categoryId: text("category_id").references(() => category.id, {
     onDelete: "set null",
   }),
+  sizeGroupId: text("size_group_id").references(() => sizeGroup.id, {
+    onDelete: "set null",
+  }),
   tags: text("tags").array(),
   baseCost: decimal("base_cost", { precision: 15, scale: 4 })
     .notNull()
     .default("0"),
+  availableForSale: boolean("available_for_sale").notNull().default(true),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -59,6 +64,10 @@ export const productRelations = relations(product, ({ one, many }) => ({
   category: one(category, {
     fields: [product.categoryId],
     references: [category.id],
+  }),
+  sizeGroup: one(sizeGroup, {
+    fields: [product.sizeGroupId],
+    references: [sizeGroup.id],
   }),
   compositions: many(productComposition),
 }));

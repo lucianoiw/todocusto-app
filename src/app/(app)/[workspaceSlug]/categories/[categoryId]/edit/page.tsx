@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getCategory, updateCategory } from "@/actions/categories";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,7 +113,7 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Salvar Alterações</Button>
+              <SubmitButton loadingText="Salvando...">Salvar Alterações</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/categories`}>Cancelar</Link>
               </Button>
