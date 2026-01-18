@@ -2,7 +2,15 @@ import Link from "next/link";
 import { getAllCategories, CategoryType } from "@/actions/categories";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { IconPlus, IconBox, IconToolsKitchen2, IconPackage } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { IconPlus, IconBox, IconToolsKitchen2, IconPackage, IconCategory } from "@tabler/icons-react";
 import { CategoriesTable } from "./categories-table";
 import { CategoriesFilters } from "./categories-filters";
 
@@ -58,24 +66,41 @@ export default async function CategoriesPage({ params, searchParams }: Categorie
 
       {result.all.length === 0 && !hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhuma categoria cadastrada ainda.
-            </p>
-            <Button asChild>
-              <Link href={`/${workspaceSlug}/categories/new`}>
-                <IconPlus className="w-4 h-4 mr-2" />
-                Criar primeira categoria
-              </Link>
-            </Button>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconCategory className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Nenhuma categoria cadastrada</EmptyTitle>
+                <EmptyDescription>
+                  Categorias ajudam a organizar seus insumos, receitas e produtos.
+                  Use cores para identificar visualmente cada categoria nas listagens
+                  e facilitar a navegação.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/categories/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Criar primeira categoria
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : result.all.length === 0 && hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Nenhuma categoria encontrada com os filtros aplicados.
-            </p>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Nenhuma categoria encontrada</EmptyTitle>
+                <EmptyDescription>
+                  Tente ajustar os filtros para encontrar o que procura.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : showAll ? (

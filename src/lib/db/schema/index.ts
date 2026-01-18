@@ -22,6 +22,9 @@ export * from "./entries";
 // Recipes
 export * from "./recipes";
 
+// Sizes (must be before products and menus)
+export * from "./sizes";
+
 // Products
 export * from "./products";
 

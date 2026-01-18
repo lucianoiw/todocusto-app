@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { deleteCategory } from "@/actions/categories";
+import { deleteCategory, toggleCategoryActive } from "@/actions/categories";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +22,7 @@ interface Category {
   id: string;
   name: string;
   color: string | null;
+  active: boolean;
 }
 
 interface CategoriesTableProps {
@@ -32,6 +34,7 @@ export function CategoriesTable({ workspaceSlug, categories }: CategoriesTablePr
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingName, setDeletingName] = useState("");
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   async function handleDelete() {
     if (!deletingId) return;
@@ -41,6 +44,16 @@ export function CategoriesTable({ workspaceSlug, categories }: CategoriesTablePr
       alert(result.error);
     }
     setDeletingId(null);
+    router.refresh();
+  }
+
+  async function handleToggle(cat: Category) {
+    setTogglingId(cat.id);
+    const result = await toggleCategoryActive(workspaceSlug, cat.id, !cat.active);
+    if (result.error) {
+      alert(result.error);
+    }
+    setTogglingId(null);
     router.refresh();
   }
 
@@ -63,7 +76,7 @@ export function CategoriesTable({ workspaceSlug, categories }: CategoriesTablePr
         <table className="w-full">
         <tbody className="divide-y">
           {categories.map((cat) => (
-            <tr key={cat.id} className="hover:bg-muted/50 transition-colors">
+            <tr key={cat.id} className={`hover:bg-muted/50 transition-colors ${!cat.active ? "opacity-50" : ""}`}>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
                   {cat.color && (
@@ -74,6 +87,13 @@ export function CategoriesTable({ workspaceSlug, categories }: CategoriesTablePr
                   )}
                   <span className="font-medium">{cat.name}</span>
                 </div>
+              </td>
+              <td className="px-4 py-3 w-20">
+                <Switch
+                  checked={cat.active}
+                  disabled={togglingId === cat.id}
+                  onCheckedChange={() => handleToggle(cat)}
+                />
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="inline-flex">

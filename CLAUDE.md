@@ -84,8 +84,15 @@ src/
 - `recipe` - receitas
 - `recipeItem` - itens da receita (ingrediente, variação, ou outra receita)
 - `recipeStep` - passos da receita
-- `product` - produtos vendáveis
+- `product` - produtos vendáveis com:
+  - `sizeGroupId`: grupo de tamanhos opcional (para pizzas, açaí, etc)
 - `productComposition` - composição do produto (ingredientes, variações, receitas, outros produtos)
+
+### Tamanhos (para pizzarias, açaiterias, etc)
+- `sizeGroup` - grupos de tamanhos do workspace (ex: "Tamanhos de Pizza", "Tamanhos de Açaí")
+- `sizeOption` - opções de tamanho dentro do grupo com:
+  - `multiplier`: multiplicador de custo (ex: 0.5 para P, 1.0 para G)
+  - `isReference`: marca qual tamanho é a referência (multiplicador 1.0)
 
 ### Cardápios
 - `menu` - cardápios com margem de lucro alvo
@@ -93,8 +100,9 @@ src/
 - `fixedCost` - custos fixos globais (aluguel, energia, salários)
 - `menuFixedCost` - custos fixos associados ao cardápio com rateio
 - `menuProduct` - produtos no cardápio com:
+  - `sizeOptionId`: tamanho opcional (se produto tem tamanhos)
   - `sellingPrice`: preço de venda
-  - `calculatedCost`: custo base do produto
+  - `calculatedCost`: custo base do produto (com multiplicador de tamanho)
   - `marginPercent`: margem calculada
   - Simulador de preço sugerido
 
@@ -145,6 +153,17 @@ custoReceita = Σ(custoItem × quantidade × conversionFactor) ÷ rendimentoRece
 custoBase = Σ(custoItem × quantidade × conversionFactor)
 ```
 
+### Cálculo de Produto com Tamanhos
+```
+custoTamanho = custoBase × multiplicador
+
+Exemplo: Pizza de Frango (custoBase = R$14,40)
+├── Pequena (0.5x) = R$14,40 × 0.5 = R$ 7,20
+├── Média (0.75x) = R$14,40 × 0.75 = R$10,80
+├── Grande (1.0x) = R$14,40 × 1.0 = R$14,40 ← Referência
+└── Gigante (1.3x) = R$14,40 × 1.3 = R$18,72
+```
+
 ## Status de Implementação
 
 ### ✅ Fase 1 (MVP) - Concluída
@@ -169,6 +188,15 @@ custoBase = Σ(custoItem × quantidade × conversionFactor)
 - [x] Cálculo de margem por produto
 - [x] Rateio de custos fixos por cardápio
 - [x] Simulador de preço sugerido (calcula preço para manter margem alvo)
+
+### ✅ Fase 2.1 - Tamanhos (Pizzarias, Açaiterias) - Concluída
+- [x] Grupos de tamanhos por workspace (ex: "Tamanhos de Pizza")
+- [x] Opções de tamanho com multiplicador (P=0.5x, M=0.75x, G=1.0x)
+- [x] Marcação de tamanho referência para composição
+- [x] Vinculação opcional de produto a grupo de tamanhos
+- [x] Cálculo automático de custo por tamanho (base × multiplicador)
+- [x] Produtos com tamanhos no cardápio (cada tamanho = linha separada)
+- [x] Prévia de custos por tamanho na página do produto
 
 ### ✅ UX/UI - Concluída
 - [x] Dark mode (toggle light/dark)

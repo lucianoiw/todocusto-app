@@ -3,12 +3,14 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { createWorkspace } from "@/actions/workspace";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { HomeHeader } from "@/components/app/home-header";
+import { EstablishmentTypeSelector } from "./establishment-type-selector";
 
 export default async function NewWorkspacePage() {
   const session = await getSession();
@@ -45,7 +47,7 @@ export default async function NewWorkspacePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={handleSubmit} className="space-y-4">
+            <form action={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome do negócio *</Label>
                 <Input
@@ -66,8 +68,10 @@ export default async function NewWorkspacePage() {
                 />
               </div>
 
+              <EstablishmentTypeSelector />
+
               <div className="flex gap-3 pt-4">
-                <Button type="submit">Criar Negócio</Button>
+                <SubmitButton loadingText="Criando...">Criar Negócio</SubmitButton>
                 <Button variant="outline" asChild>
                   <Link href="/">Cancelar</Link>
                 </Button>

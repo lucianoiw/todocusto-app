@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { eq, and, sql, like, count, asc, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ingredient, ingredientVariation, entry, unit, category, supplier } from "@/lib/db/schema";
+import { ingredient, ingredientVariation, entry, unit, category, supplier, recipeItem, productComposition, recipe, product } from "@/lib/db/schema";
 import { requireSession } from "@/lib/session";
 import { getWorkspaceBySlug } from "./workspace";
 import { generateId } from "@/lib/utils/id";
@@ -69,6 +69,7 @@ export async function getIngredients(workspaceSlug: string, filters?: Ingredient
       baseCostPerUnit: ingredient.baseCostPerUnit,
       averagePriceManual: ingredient.averagePriceManual,
       hasVariations: ingredient.hasVariations,
+      availableForSale: ingredient.availableForSale,
       tags: ingredient.tags,
       createdAt: ingredient.createdAt,
       updatedAt: ingredient.updatedAt,
@@ -143,6 +144,7 @@ export async function getIngredient(workspaceSlug: string, ingredientId: string)
       baseCostPerUnit: ingredient.baseCostPerUnit,
       averagePriceManual: ingredient.averagePriceManual,
       hasVariations: ingredient.hasVariations,
+      availableForSale: ingredient.availableForSale,
       tags: ingredient.tags,
       createdAt: ingredient.createdAt,
       updatedAt: ingredient.updatedAt,
@@ -235,6 +237,7 @@ export async function updateIngredient(
   const priceUnitId = formData.get("priceUnitId") as string;
   const priceQuantity = formData.get("priceQuantity") as string | null;
   const priceValue = formData.get("averagePrice") as string | null;
+  const availableForSale = formData.get("availableForSale") === "true";
 
   if (!name || !measurementType || !priceUnitId) {
     return { error: "Nome, tipo de medida e unidade são obrigatórios" };
@@ -252,6 +255,7 @@ export async function updateIngredient(
     categoryId: categoryId || null,
     measurementType,
     priceUnitId,
+    availableForSale,
     updatedAt: new Date(),
   };
 
@@ -419,11 +423,12 @@ export async function updateVariation(
   await requireSession();
 
   const name = formData.get("name") as string;
-  const yieldPercentage = formData.get("yieldPercentage") as string;
-  const unitId = formData.get("unitId") as string;
-  const equivalenceQuantity = formData.get("equivalenceQuantity") as string;
+  const inputQuantity = formData.get("inputQuantity") as string;
+  const inputUnitId = formData.get("inputUnitId") as string;
+  const outputQuantity = formData.get("outputQuantity") as string;
+  const outputUnitId = formData.get("outputUnitId") as string;
 
-  if (!name || !yieldPercentage || !unitId || !equivalenceQuantity) {
+  if (!name || !inputQuantity || !inputUnitId || !outputQuantity || !outputUnitId) {
     return { error: "Todos os campos são obrigatórios" };
   }
 
@@ -433,16 +438,36 @@ export async function updateVariation(
     return { error: "Ingrediente não encontrado" };
   }
 
-  // Get variation unit for conversion
-  const varUnit = await db.select().from(unit).where(eq(unit.id, unitId));
-  if (!varUnit[0]) {
+  // Get input and output units
+  const inputUnit = await db.select().from(unit).where(eq(unit.id, inputUnitId));
+  const outputUnit = await db.select().from(unit).where(eq(unit.id, outputUnitId));
+
+  if (!inputUnit[0] || !outputUnit[0]) {
     return { error: "Unidade não encontrada" };
   }
 
+  // Convert quantities to base units
+  const inputInBase = parseFloat(inputQuantity) * parseFloat(inputUnit[0].conversionFactor);
+  const outputInBase = parseFloat(outputQuantity) * parseFloat(outputUnit[0].conversionFactor);
+
+  if (inputInBase <= 0) {
+    return { error: "Quantidade de entrada deve ser maior que zero" };
+  }
+
+  // Calculate yield percentage: (output / input) * 100
+  const yieldPct = (outputInBase / inputInBase) * 100;
+  const yieldPercentage = yieldPct.toFixed(2);
+
+  // Output unit becomes the variation's unit
+  const unitId = outputUnitId;
+  const outputConversionFactor = parseFloat(outputUnit[0].conversionFactor);
+
+  // Calculate cost per BASE unit (g/ml/un), considering yield
   const baseCost = parseFloat(ing.baseCostPerUnit);
-  const yieldPct = parseFloat(yieldPercentage) / 100;
-  // Cost per BASE unit (g/ml/un), considering yield
-  const calculatedCost = baseCost / yieldPct;
+  const calculatedCost = baseCost / (yieldPct / 100);
+
+  // equivalenceQuantity = conversion factor of output unit
+  const equivalenceQuantity = outputConversionFactor.toString();
 
   await db
     .update(ingredientVariation)
@@ -604,6 +629,55 @@ export async function createEntry(
   return { success: true, id };
 }
 
+export async function updateEntry(
+  workspaceSlug: string,
+  ingredientId: string,
+  entryId: string,
+  formData: FormData
+) {
+  await requireSession();
+
+  const date = formData.get("date") as string;
+  const quantity = formData.get("quantity") as string;
+  const unitId = formData.get("unitId") as string;
+  const unitPrice = formData.get("unitPrice") as string;
+  const supplierId = formData.get("supplierId") as string | null;
+  const observation = formData.get("observation") as string | null;
+
+  if (!date || !quantity || !unitId || !unitPrice) {
+    return { error: "Data, quantidade, unidade e preço são obrigatórios" };
+  }
+
+  // Get the entry unit to calculate total in base units
+  const entryUnit = await db.select().from(unit).where(eq(unit.id, unitId));
+  if (!entryUnit[0]) {
+    return { error: "Unidade não encontrada" };
+  }
+
+  const qty = parseFloat(quantity);
+  const totalPriceValue = parseFloat(unitPrice); // unitPrice field contains total price
+  const calculatedUnitPrice = qty > 0 ? totalPriceValue / qty : 0;
+
+  await db
+    .update(entry)
+    .set({
+      date,
+      quantity,
+      unitId,
+      unitPrice: calculatedUnitPrice.toFixed(4),
+      totalPrice: totalPriceValue.toFixed(4),
+      supplierId: supplierId || null,
+      observation: observation?.trim() || null,
+    })
+    .where(eq(entry.id, entryId));
+
+  // Recalculate average price from all entries
+  await recalculateAveragePrice(workspaceSlug, ingredientId);
+
+  revalidatePath(`/${workspaceSlug}/ingredients/${ingredientId}`);
+  return { success: true };
+}
+
 export async function deleteEntry(
   workspaceSlug: string,
   ingredientId: string,
@@ -693,6 +767,9 @@ async function recalculateAveragePrice(workspaceSlug: string, ingredientId: stri
 
   // Recalculate variation costs using base cost
   await recalculateVariationCosts(ingredientId, baseCostPerUnit);
+
+  // CASCADE: Recalculate recipes and products that use this ingredient directly
+  await cascadeIngredientChanges(ingredientId, baseCostPerUnit);
 }
 
 async function recalculateVariationCosts(ingredientId: string, baseCostPerUnit: number) {
@@ -718,6 +795,364 @@ async function recalculateVariationCosts(ingredientId: string, baseCostPerUnit: 
         updatedAt: new Date(),
       })
       .where(eq(ingredientVariation.id, v.id));
+
+    // CASCADE: Recalculate recipes and products that use this variation
+    await cascadeVariationChanges(v.id, calculatedCost);
+  }
+}
+
+// Cascade ingredient changes to recipes and products
+async function cascadeIngredientChanges(ingredientId: string, baseCostPerUnit: number) {
+  // Find all recipe items that use this ingredient directly
+  const recipeItemsList = await db
+    .select({
+      id: recipeItem.id,
+      recipeId: recipeItem.recipeId,
+      quantity: recipeItem.quantity,
+      unitId: recipeItem.unitId,
+    })
+    .from(recipeItem)
+    .where(
+      and(
+        eq(recipeItem.type, "ingredient"),
+        eq(recipeItem.itemId, ingredientId)
+      )
+    );
+
+  const processedRecipes = new Set<string>();
+
+  for (const item of recipeItemsList) {
+    // Get unit conversion factor
+    const itemUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, item.unitId));
+    const conversionFactor = itemUnit[0] ? parseFloat(itemUnit[0].conversionFactor) : 1;
+
+    // Calculate new cost
+    const quantityInBase = parseFloat(item.quantity) * conversionFactor;
+    const newCalculatedCost = baseCostPerUnit * quantityInBase;
+
+    await db
+      .update(recipeItem)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(recipeItem.id, item.id));
+
+    processedRecipes.add(item.recipeId);
+  }
+
+  // Recalculate affected recipes (they will cascade to products)
+  for (const recipeId of processedRecipes) {
+    await recalculateRecipeFromIngredient(recipeId);
+  }
+
+  // Find all product compositions that use this ingredient directly
+  const productCompositionsList = await db
+    .select({
+      id: productComposition.id,
+      productId: productComposition.productId,
+      quantity: productComposition.quantity,
+      unitId: productComposition.unitId,
+    })
+    .from(productComposition)
+    .where(
+      and(
+        eq(productComposition.type, "ingredient"),
+        eq(productComposition.itemId, ingredientId)
+      )
+    );
+
+  const processedProducts = new Set<string>();
+
+  for (const comp of productCompositionsList) {
+    // Get unit conversion factor
+    let conversionFactor = 1;
+    if (comp.unitId) {
+      const itemUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, comp.unitId));
+      conversionFactor = itemUnit[0] ? parseFloat(itemUnit[0].conversionFactor) : 1;
+    }
+
+    // Calculate new cost
+    const quantityInBase = parseFloat(comp.quantity) * conversionFactor;
+    const newCalculatedCost = baseCostPerUnit * quantityInBase;
+
+    await db
+      .update(productComposition)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(productComposition.id, comp.id));
+
+    processedProducts.add(comp.productId);
+  }
+
+  // Recalculate affected products
+  for (const productId of processedProducts) {
+    await recalculateProductFromIngredient(productId);
+  }
+}
+
+// Cascade variation changes to recipes and products
+async function cascadeVariationChanges(variationId: string, calculatedCost: number) {
+  // Find all recipe items that use this variation
+  const recipeItemsList = await db
+    .select({
+      id: recipeItem.id,
+      recipeId: recipeItem.recipeId,
+      quantity: recipeItem.quantity,
+      unitId: recipeItem.unitId,
+    })
+    .from(recipeItem)
+    .where(
+      and(
+        eq(recipeItem.type, "variation"),
+        eq(recipeItem.itemId, variationId)
+      )
+    );
+
+  const processedRecipes = new Set<string>();
+
+  for (const item of recipeItemsList) {
+    // Get unit conversion factor
+    const itemUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, item.unitId));
+    const conversionFactor = itemUnit[0] ? parseFloat(itemUnit[0].conversionFactor) : 1;
+
+    // Calculate new cost
+    const quantityInBase = parseFloat(item.quantity) * conversionFactor;
+    const newCalculatedCost = calculatedCost * quantityInBase;
+
+    await db
+      .update(recipeItem)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(recipeItem.id, item.id));
+
+    processedRecipes.add(item.recipeId);
+  }
+
+  // Recalculate affected recipes
+  for (const recipeId of processedRecipes) {
+    await recalculateRecipeFromIngredient(recipeId);
+  }
+
+  // Find all product compositions that use this variation
+  const productCompositionsList = await db
+    .select({
+      id: productComposition.id,
+      productId: productComposition.productId,
+      quantity: productComposition.quantity,
+      unitId: productComposition.unitId,
+    })
+    .from(productComposition)
+    .where(
+      and(
+        eq(productComposition.type, "variation"),
+        eq(productComposition.itemId, variationId)
+      )
+    );
+
+  const processedProducts = new Set<string>();
+
+  for (const comp of productCompositionsList) {
+    // Get unit conversion factor
+    let conversionFactor = 1;
+    if (comp.unitId) {
+      const itemUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, comp.unitId));
+      conversionFactor = itemUnit[0] ? parseFloat(itemUnit[0].conversionFactor) : 1;
+    }
+
+    // Calculate new cost
+    const quantityInBase = parseFloat(comp.quantity) * conversionFactor;
+    const newCalculatedCost = calculatedCost * quantityInBase;
+
+    await db
+      .update(productComposition)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(productComposition.id, comp.id));
+
+    processedProducts.add(comp.productId);
+  }
+
+  // Recalculate affected products
+  for (const productId of processedProducts) {
+    await recalculateProductFromIngredient(productId);
+  }
+}
+
+// Helper to recalculate recipe and cascade (similar to recipes.ts but local)
+async function recalculateRecipeFromIngredient(recipeId: string, visitedRecipes: Set<string> = new Set()) {
+  if (visitedRecipes.has(recipeId)) return;
+  visitedRecipes.add(recipeId);
+
+  // Get all items
+  const items = await db
+    .select({ calculatedCost: recipeItem.calculatedCost })
+    .from(recipeItem)
+    .where(eq(recipeItem.recipeId, recipeId));
+
+  const totalCost = items.reduce(
+    (sum, item) => sum + parseFloat(item.calculatedCost),
+    0
+  );
+
+  // Get recipe info
+  const rec = await db
+    .select({
+      yieldQuantity: recipe.yieldQuantity,
+      yieldUnitId: recipe.yieldUnitId,
+      workspaceId: recipe.workspaceId,
+      prepTime: recipe.prepTime,
+    })
+    .from(recipe)
+    .where(eq(recipe.id, recipeId));
+
+  if (!rec[0]) return;
+
+  const prepTime = rec[0].prepTime || 0;
+
+  // Get workspace labor cost
+  const ws = await db
+    .select({ laborCostPerHour: sql<string>`COALESCE(labor_cost_per_hour, '0')` })
+    .from(sql`workspace`)
+    .where(sql`id = ${rec[0].workspaceId}`);
+
+  const laborCostPerHour = ws[0]?.laborCostPerHour ? parseFloat(ws[0].laborCostPerHour) : 0;
+  const laborCost = (prepTime / 60) * laborCostPerHour;
+
+  const yieldQty = parseFloat(rec[0].yieldQuantity) || 1;
+  const costPerPortion = (totalCost + laborCost) / yieldQty;
+
+  await db
+    .update(recipe)
+    .set({
+      totalCost: totalCost.toFixed(4),
+      laborCost: laborCost.toFixed(4),
+      costPerPortion: costPerPortion.toFixed(4),
+      updatedAt: new Date(),
+    })
+    .where(eq(recipe.id, recipeId));
+
+  // CASCADE: Find recipes that use this recipe
+  const dependentRecipeItems = await db
+    .select({
+      recipeId: recipeItem.recipeId,
+      id: recipeItem.id,
+      quantity: recipeItem.quantity,
+      unitId: recipeItem.unitId,
+    })
+    .from(recipeItem)
+    .where(
+      and(
+        eq(recipeItem.type, "recipe"),
+        eq(recipeItem.itemId, recipeId)
+      )
+    );
+
+  for (const item of dependentRecipeItems) {
+    // Get recipe yield unit conversion
+    const yieldUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, rec[0].yieldUnitId));
+    const yieldConversionFactor = yieldUnit[0] ? parseFloat(yieldUnit[0].conversionFactor) : 1;
+
+    // Get item unit conversion
+    const itemUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, item.unitId));
+    const inputConversionFactor = itemUnit[0] ? parseFloat(itemUnit[0].conversionFactor) : 1;
+
+    // Calculate new cost
+    const quantityInBase = parseFloat(item.quantity) * inputConversionFactor;
+    const costPerBase = costPerPortion / yieldConversionFactor;
+    const newCalculatedCost = costPerBase * quantityInBase;
+
+    await db
+      .update(recipeItem)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(recipeItem.id, item.id));
+
+    await recalculateRecipeFromIngredient(item.recipeId, visitedRecipes);
+  }
+
+  // CASCADE: Find products that use this recipe
+  const dependentProductCompositions = await db
+    .select({
+      productId: productComposition.productId,
+      id: productComposition.id,
+      quantity: productComposition.quantity,
+      unitId: productComposition.unitId,
+    })
+    .from(productComposition)
+    .where(
+      and(
+        eq(productComposition.type, "recipe"),
+        eq(productComposition.itemId, recipeId)
+      )
+    );
+
+  for (const comp of dependentProductCompositions) {
+    // Get recipe yield unit conversion
+    const yieldUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, rec[0].yieldUnitId));
+    const yieldConversionFactor = yieldUnit[0] ? parseFloat(yieldUnit[0].conversionFactor) : 1;
+
+    // Get composition unit conversion
+    let inputConversionFactor = 1;
+    if (comp.unitId) {
+      const itemUnit = await db.select({ conversionFactor: unit.conversionFactor }).from(unit).where(eq(unit.id, comp.unitId));
+      inputConversionFactor = itemUnit[0] ? parseFloat(itemUnit[0].conversionFactor) : 1;
+    }
+
+    // Calculate new cost
+    const quantityInBase = parseFloat(comp.quantity) * inputConversionFactor;
+    const costPerBase = costPerPortion / yieldConversionFactor;
+    const newCalculatedCost = costPerBase * quantityInBase;
+
+    await db
+      .update(productComposition)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(productComposition.id, comp.id));
+
+    await recalculateProductFromIngredient(comp.productId);
+  }
+}
+
+// Helper to recalculate product and cascade
+async function recalculateProductFromIngredient(productId: string, visitedProducts: Set<string> = new Set()) {
+  if (visitedProducts.has(productId)) return;
+  visitedProducts.add(productId);
+
+  const items = await db
+    .select({ calculatedCost: productComposition.calculatedCost })
+    .from(productComposition)
+    .where(eq(productComposition.productId, productId));
+
+  const baseCost = items.reduce(
+    (sum, item) => sum + parseFloat(item.calculatedCost),
+    0
+  );
+
+  await db
+    .update(product)
+    .set({
+      baseCost: baseCost.toFixed(4),
+      updatedAt: new Date(),
+    })
+    .where(eq(product.id, productId));
+
+  // CASCADE: Find products that use this product
+  const dependentCompositions = await db
+    .select({
+      productId: productComposition.productId,
+      id: productComposition.id,
+      quantity: productComposition.quantity,
+    })
+    .from(productComposition)
+    .where(
+      and(
+        eq(productComposition.type, "product"),
+        eq(productComposition.itemId, productId)
+      )
+    );
+
+  for (const comp of dependentCompositions) {
+    const newCalculatedCost = baseCost * parseFloat(comp.quantity);
+
+    await db
+      .update(productComposition)
+      .set({ calculatedCost: newCalculatedCost.toFixed(4) })
+      .where(eq(productComposition.id, comp.id));
+
+    await recalculateProductFromIngredient(comp.productId, visitedProducts);
   }
 }
 

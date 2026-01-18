@@ -14,6 +14,7 @@ import {
   IconTruck,
   IconSettings,
   IconChartLine,
+  IconResize,
 } from "@tabler/icons-react";
 import {
   Sidebar,
@@ -65,6 +66,7 @@ const mainNav = [
 const settingsNav = [
   { name: "Fornecedores", href: "/suppliers", icon: IconTruck },
   { name: "Unidades", href: "/units", icon: IconRuler },
+  { name: "Tamanhos", href: "/sizes", icon: IconResize },
   { name: "Categorias", href: "/categories", icon: IconTags },
   { name: "Configurações", href: "/settings", icon: IconSettings },
 ];

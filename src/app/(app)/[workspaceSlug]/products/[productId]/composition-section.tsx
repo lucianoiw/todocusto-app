@@ -32,7 +32,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { IconPlus, IconTrash, IconPencil, IconChevronDown, IconSearch } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconPencil, IconChevronDown, IconSearch, IconLayersSubtract } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Select,
   SelectContent,
@@ -56,6 +63,7 @@ interface ProductCompositionSectionProps {
   workspaceSlug: string;
   productId: string;
   composition: CompositionItem[];
+  referenceSizeName?: string;
 }
 
 type AvailableItem = {
@@ -79,6 +87,7 @@ export function ProductCompositionSection({
   workspaceSlug,
   productId,
   composition,
+  referenceSizeName,
 }: ProductCompositionSectionProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -111,24 +120,36 @@ export function ProductCompositionSection({
     return units.filter((u) => u.measurementType === selectedItem.measurementType);
   }, [units, selectedItem?.measurementType]);
 
-  // Filter items based on search query
+  // Sort function for alphabetical order
+  const sortByName = (a: AvailableItem, b: AvailableItem) =>
+    a.displayName.localeCompare(b.displayName, "pt-BR");
+
+  // Filter and sort items based on search query
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-    if (!query) return availableItems;
+
+    if (!query) {
+      return {
+        ingredients: [...availableItems.ingredients].sort(sortByName),
+        variations: [...availableItems.variations].sort(sortByName),
+        recipes: [...availableItems.recipes].sort(sortByName),
+        products: [...availableItems.products].sort(sortByName),
+      };
+    }
 
     return {
-      ingredients: availableItems.ingredients.filter(item =>
-        item.displayName.toLowerCase().includes(query)
-      ),
-      variations: availableItems.variations.filter(item =>
-        item.displayName.toLowerCase().includes(query)
-      ),
-      recipes: availableItems.recipes.filter(item =>
-        item.displayName.toLowerCase().includes(query)
-      ),
-      products: availableItems.products.filter(item =>
-        item.displayName.toLowerCase().includes(query)
-      ),
+      ingredients: availableItems.ingredients
+        .filter(item => item.displayName.toLowerCase().includes(query))
+        .sort(sortByName),
+      variations: availableItems.variations
+        .filter(item => item.displayName.toLowerCase().includes(query))
+        .sort(sortByName),
+      recipes: availableItems.recipes
+        .filter(item => item.displayName.toLowerCase().includes(query))
+        .sort(sortByName),
+      products: availableItems.products
+        .filter(item => item.displayName.toLowerCase().includes(query))
+        .sort(sortByName),
     };
   }, [availableItems, searchQuery]);
 
@@ -220,8 +241,12 @@ export function ProductCompositionSection({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">Composição do Produto</CardTitle>
-        {!showForm && (
+        <CardTitle className="text-lg">
+          {referenceSizeName
+            ? `Composição do Produto (${referenceSizeName})`
+            : "Composição do Produto"}
+        </CardTitle>
+        {!showForm && composition.length > 0 && (
           <Button onClick={loadData}>
             <IconPlus />
             Adicionar Item
@@ -410,11 +435,25 @@ export function ProductCompositionSection({
           </form>
         )}
 
-        {composition.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            Nenhum item adicionado. Adicione insumos, receitas ou outros produtos.
-          </p>
-        ) : (
+        {composition.length === 0 && !showForm ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconLayersSubtract className="h-5 w-5" />
+              </EmptyMedia>
+              <EmptyTitle>Nenhum item na composição</EmptyTitle>
+              <EmptyDescription>
+                {referenceSizeName
+                  ? `Adicione os itens que compõem o tamanho "${referenceSizeName}". Os demais tamanhos terão o custo calculado automaticamente pelo multiplicador.`
+                  : "Adicione insumos, receitas ou outros produtos para calcular o custo deste produto."}
+              </EmptyDescription>
+            </EmptyHeader>
+            <Button onClick={loadData} className="mt-4">
+              <IconPlus />
+              Adicionar Item
+            </Button>
+          </Empty>
+        ) : composition.length === 0 ? null : (
           <div>
             <table className="w-full text-sm">
               <thead>

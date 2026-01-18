@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getUnit, updateUnit } from "@/actions/units";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,7 +109,7 @@ export default async function EditUnitPage({ params }: EditUnitPageProps) {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Salvar Alterações</Button>
+              <SubmitButton loadingText="Salvando...">Salvar Alterações</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/units`}>Cancelar</Link>
               </Button>

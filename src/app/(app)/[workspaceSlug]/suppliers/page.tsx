@@ -2,7 +2,15 @@ import Link from "next/link";
 import { getSuppliers } from "@/actions/suppliers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { IconPlus, IconTruck } from "@tabler/icons-react";
 import { SuppliersTable } from "./suppliers-table";
 import { SuppliersFilters } from "./suppliers-filters";
 import { SuppliersPagination } from "./suppliers-pagination";
@@ -48,24 +56,40 @@ export default async function SuppliersPage({ params, searchParams }: SuppliersP
 
       {suppliers.length === 0 && !hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhum fornecedor cadastrado ainda.
-            </p>
-            <Button asChild>
-              <Link href={`/${workspaceSlug}/suppliers/new`}>
-                <IconPlus className="w-4 h-4 mr-2" />
-                Criar primeiro fornecedor
-              </Link>
-            </Button>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconTruck className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Nenhum fornecedor cadastrado</EmptyTitle>
+                <EmptyDescription>
+                  Cadastre seus fornecedores para organizar contatos, comparar preços
+                  e identificar onde comprou mais barato ou mais caro cada insumo.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/suppliers/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Cadastrar primeiro fornecedor
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : suppliers.length === 0 && hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Nenhum fornecedor encontrado com os filtros aplicados.
-            </p>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Nenhum fornecedor encontrado</EmptyTitle>
+                <EmptyDescription>
+                  Tente ajustar os filtros para encontrar o que procura.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (

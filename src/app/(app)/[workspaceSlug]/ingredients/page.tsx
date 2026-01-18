@@ -3,7 +3,15 @@ import { getIngredients } from "@/actions/ingredients";
 import { getCategories } from "@/actions/categories";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { IconPlus, IconBox } from "@tabler/icons-react";
 import { IngredientsTable } from "./ingredients-table";
 import { IngredientsFilters } from "./ingredients-filters";
 import { IngredientsPagination } from "./ingredients-pagination";
@@ -58,24 +66,41 @@ export default async function IngredientsPage({ params, searchParams }: Ingredie
 
       {ingredients.length === 0 && !hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhum insumo cadastrado ainda.
-            </p>
-            <Button asChild>
-              <Link href={`/${workspaceSlug}/ingredients/new`}>
-                <IconPlus className="w-4 h-4 mr-2" />
-                Criar primeiro insumo
-              </Link>
-            </Button>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconBox className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Nenhum insumo cadastrado</EmptyTitle>
+                <EmptyDescription>
+                  Insumos são os itens que você compra para seu negócio: ingredientes para
+                  preparar receitas, embalagens, materiais de limpeza, etc. Eles também podem
+                  ser vendidos diretamente nos seus cardápios.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/ingredients/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Cadastrar primeiro insumo
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : ingredients.length === 0 && hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Nenhum insumo encontrado com os filtros aplicados.
-            </p>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Nenhum insumo encontrado</EmptyTitle>
+                <EmptyDescription>
+                  Tente ajustar os filtros para encontrar o que procura.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (

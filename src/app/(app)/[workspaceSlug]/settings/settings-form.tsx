@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { IconLoader2 } from "@tabler/icons-react";
 
 interface SettingsFormProps {
   workspace: {
@@ -93,7 +94,14 @@ export function SettingsForm({ workspace, appUrl }: SettingsFormProps) {
 
       <div className="pt-4">
         <Button type="submit" disabled={saving}>
-          {saving ? "Salvando..." : "Salvar Alterações"}
+          {saving ? (
+            <>
+              <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+              Salvando...
+            </>
+          ) : (
+            "Salvar Alterações"
+          )}
         </Button>
       </div>
     </form>

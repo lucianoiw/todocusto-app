@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createCategory } from "@/actions/categories";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,7 +111,7 @@ export default async function NewCategoryPage({ params }: NewCategoryPageProps) 
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit">Criar Categoria</Button>
+              <SubmitButton loadingText="Criando...">Criar Categoria</SubmitButton>
               <Button variant="outline" asChild>
                 <Link href={`/${workspaceSlug}/categories`}>Cancelar</Link>
               </Button>

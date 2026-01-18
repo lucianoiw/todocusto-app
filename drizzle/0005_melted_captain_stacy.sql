@@ -1,0 +1,1 @@
+ALTER TABLE "menu" ADD COLUMN "target_margin" numeric(5, 2) DEFAULT '30' NOT NULL;

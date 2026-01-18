@@ -16,7 +16,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { IconEye, IconPencil, IconTrash, IconLoader2 } from "@tabler/icons-react";
+import { IconEye, IconPencil, IconTrash, IconLoader2, IconReceipt } from "@tabler/icons-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Ingredient {
   id: string;
@@ -26,6 +32,7 @@ interface Ingredient {
   averagePrice: string;
   priceUnitAbbreviation: string | null;
   hasVariations: boolean;
+  availableForSale: boolean;
   variationNames: string[];
 }
 
@@ -59,7 +66,7 @@ export function IngredientsTable({ workspaceSlug, ingredients }: IngredientsTabl
   }
 
   return (
-    <>
+    <TooltipProvider>
       <div className="overflow-x-auto">
         <table className="w-full min-w-150">
         <thead>
@@ -88,6 +95,16 @@ export function IngredientsTable({ workspaceSlug, ingredients }: IngredientsTabl
                   >
                     {ing.name}
                   </Link>
+                  {ing.availableForSale && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <IconReceipt className="w-3.5 h-3.5 text-muted-foreground/60" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Disponível para venda em cardápios</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">
@@ -160,6 +177,6 @@ export function IngredientsTable({ workspaceSlug, ingredients }: IngredientsTabl
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </TooltipProvider>
   );
 }

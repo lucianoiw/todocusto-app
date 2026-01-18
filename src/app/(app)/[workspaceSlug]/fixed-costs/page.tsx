@@ -2,7 +2,15 @@ import Link from "next/link";
 import { getFixedCosts } from "@/actions/fixed-costs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { IconPlus, IconReceipt } from "@tabler/icons-react";
 import { FixedCostsTable } from "./fixed-costs-table";
 import { FixedCostsFilters } from "./fixed-costs-filters";
 import { FixedCostsPagination } from "./fixed-costs-pagination";
@@ -60,24 +68,41 @@ export default async function FixedCostsPage({ params, searchParams }: FixedCost
 
       {costs.length === 0 && !hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhum custo fixo cadastrado ainda.
-            </p>
-            <Button asChild>
-              <Link href={`/${workspaceSlug}/fixed-costs/new`}>
-                <IconPlus className="w-4 h-4 mr-2" />
-                Criar primeiro custo fixo
-              </Link>
-            </Button>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconReceipt className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Nenhum custo fixo cadastrado</EmptyTitle>
+                <EmptyDescription>
+                  Custos fixos são despesas mensais do seu negócio: aluguel, energia,
+                  internet, salários, contador, etc. Esses valores serão rateados
+                  automaticamente no custo dos produtos dos seus cardápios.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/fixed-costs/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Cadastrar primeiro custo fixo
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : costs.length === 0 && hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Nenhum custo fixo encontrado com os filtros aplicados.
-            </p>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Nenhum custo fixo encontrado</EmptyTitle>
+                <EmptyDescription>
+                  Tente ajustar os filtros para encontrar o que procura.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (

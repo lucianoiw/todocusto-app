@@ -37,6 +37,7 @@ export const ingredient = pgTable("ingredient", {
     .default("0"),
   averagePriceManual: boolean("average_price_manual").notNull().default(false),
   hasVariations: boolean("has_variations").notNull().default(false),
+  availableForSale: boolean("available_for_sale").notNull().default(false),
   tags: text("tags").array(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

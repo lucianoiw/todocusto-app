@@ -1,0 +1,1 @@
+ALTER TABLE "product" ADD COLUMN "available_for_sale" boolean DEFAULT true NOT NULL;

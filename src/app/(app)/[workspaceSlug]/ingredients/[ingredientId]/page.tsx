@@ -40,13 +40,13 @@ export default async function IngredientDetailPage({
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link href={`/${workspaceSlug}/ingredients/${ingredientId}/edit`}>
-              <IconPencil className="w-4 h-4 mr-2" />
+              <IconPencil />
               Editar
             </Link>
           </Button>
           <Button asChild>
             <Link href={`/${workspaceSlug}/ingredients/new`}>
-              <IconPlus className="w-4 h-4 mr-2" />
+              <IconPlus />
               Novo Insumo
             </Link>
           </Button>
@@ -78,10 +78,7 @@ export default async function IngredientDetailPage({
                   R$ {parseFloat(ingredient.averagePrice).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  por {ingredient.priceUnitAbbreviation}
-                  {ingredient.averagePriceManual && (
-                    <span className="ml-1">(manual)</span>
-                  )}
+                  por {ingredient.priceUnitName}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Custo base: R$ {parseFloat(ingredient.baseCostPerUnit).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}/

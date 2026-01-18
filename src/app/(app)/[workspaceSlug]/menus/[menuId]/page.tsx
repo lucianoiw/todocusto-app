@@ -13,6 +13,7 @@ import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { MenuProductsSection } from "./products-section";
 import { MenuFeesSection } from "./fees-section";
 import { FixedCostsSection } from "./fixed-costs-section";
+import { TargetMarginSection } from "./target-margin-section";
 
 interface MenuDetailPageProps {
   params: Promise<{ workspaceSlug: string; menuId: string }>;
@@ -50,7 +51,7 @@ export default async function MenuDetailPage({ params }: MenuDetailPageProps) {
         </Link>
         <Button variant="outline" asChild>
           <Link href={`/${workspaceSlug}/menus/${menuId}/edit`}>
-            <IconPencil className="w-4 h-4 mr-2" />
+            <IconPencil />
             Editar
           </Link>
         </Button>
@@ -134,6 +135,15 @@ export default async function MenuDetailPage({ params }: MenuDetailPageProps) {
           productCount={products.length}
         />
 
+        {/* Target Margin Section */}
+        <TargetMarginSection
+          workspaceSlug={workspaceSlug}
+          menuId={menuId}
+          targetMargin={parseFloat(menu.targetMargin)}
+          pricingMode={menu.pricingMode}
+          hasProducts={products.length > 0}
+        />
+
         {/* Products Section */}
         <MenuProductsSection
           workspaceSlug={workspaceSlug}
@@ -143,6 +153,8 @@ export default async function MenuDetailPage({ params }: MenuDetailPageProps) {
           apportionmentType={menu.apportionmentType}
           apportionmentValue={menu.apportionmentValue}
           totalMonthlyFixedCost={fixedCostsData.total}
+          defaultTargetMargin={parseFloat(menu.targetMargin)}
+          pricingMode={menu.pricingMode}
         />
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { createVariation, deleteVariation } from "@/actions/ingredients";
+import { createVariation, updateVariation, deleteVariation } from "@/actions/ingredients";
 import { getUnits } from "@/actions/units";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { IconPlus, IconTrash, IconArrowRight, IconLoader2 } from "@tabler/icons-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { IconPlus, IconTrash, IconArrowRight, IconLoader2, IconPencil } from "@tabler/icons-react";
 
 interface Variation {
   id: string;
@@ -75,6 +83,15 @@ export function VariationsSection({
   const [outputQty, setOutputQty] = useState("");
   const [outputUnitId, setOutputUnitId] = useState("");
 
+  // Edit state
+  const [editingVariation, setEditingVariation] = useState<Variation | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editInputQty, setEditInputQty] = useState("");
+  const [editInputUnitId, setEditInputUnitId] = useState("");
+  const [editOutputQty, setEditOutputQty] = useState("");
+  const [editOutputUnitId, setEditOutputUnitId] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+
   // Filter units by ingredient's measurementType
   const filteredUnits = useMemo(() =>
     units.filter(u => u.measurementType === measurementType),
@@ -96,6 +113,22 @@ export function VariationsSection({
     const yieldPct = (outputInBase / inputInBase) * 100;
     return yieldPct;
   }, [inputQty, inputUnitId, outputQty, outputUnitId, units]);
+
+  // Calculate edit yield percentage preview
+  const editYieldPreview = useMemo(() => {
+    const inputUnit = units.find(u => u.id === editInputUnitId);
+    const outputUnit = units.find(u => u.id === editOutputUnitId);
+
+    if (!editInputQty || !editOutputQty || !inputUnit || !outputUnit) return null;
+
+    const inputInBase = parseFloat(editInputQty) * parseFloat(inputUnit.conversionFactor);
+    const outputInBase = parseFloat(editOutputQty) * parseFloat(outputUnit.conversionFactor);
+
+    if (inputInBase <= 0) return null;
+
+    const yieldPct = (outputInBase / inputInBase) * 100;
+    return yieldPct;
+  }, [editInputQty, editInputUnitId, editOutputQty, editOutputUnitId, units]);
 
   async function loadUnits() {
     if (units.length === 0) {
@@ -134,13 +167,58 @@ export function VariationsSection({
     }
   }
 
+  async function openEditDialog(variation: Variation) {
+    // Load units if not already loaded
+    if (units.length === 0) {
+      const unitsResult = await getUnits(workspaceSlug);
+      setUnits(unitsResult.all);
+    }
+
+    // Calculate input/output from yield percentage
+    // We'll use 1kg as input and calculate output based on yield
+    const yieldPct = parseFloat(variation.yieldPercentage);
+    const outputQty = (yieldPct / 100).toFixed(3);
+
+    setEditName(variation.name);
+    setEditInputQty("1");
+    setEditInputUnitId(variation.unitId);
+    setEditOutputQty(outputQty);
+    setEditOutputUnitId(variation.unitId);
+    setEditingVariation(variation);
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingVariation) return;
+
+    setEditLoading(true);
+    try {
+      const formData = new FormData();
+      formData.set("name", editName);
+      formData.set("inputQuantity", editInputQty);
+      formData.set("inputUnitId", editInputUnitId);
+      formData.set("outputQuantity", editOutputQty);
+      formData.set("outputUnitId", editOutputUnitId);
+
+      const result = await updateVariation(workspaceSlug, ingredientId, editingVariation.id, formData);
+      if (result.success) {
+        setEditingVariation(null);
+        router.refresh();
+      } else {
+        alert(result.error);
+      }
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Variações</CardTitle>
         {!showForm && (
-          <Button size="sm" onClick={loadUnits}>
-            <IconPlus className="w-4 h-4 mr-1" />
+          <Button onClick={loadUnits}>
+            <IconPlus />
             Nova Variação
           </Button>
         )}
@@ -248,7 +326,7 @@ export function VariationsSection({
             </div>
 
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>
                     <IconLoader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -261,7 +339,6 @@ export function VariationsSection({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 onClick={() => setShowForm(false)}
                 disabled={loading}
               >
@@ -312,10 +389,17 @@ export function VariationsSection({
                         Base: R$ {parseFloat(v.calculatedCost).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}/{measurementType === "weight" ? "g" : measurementType === "volume" ? "ml" : "un"}
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEditDialog(v)}
+                    >
+                      <IconPencil className="h-4 w-4" />
+                    </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-red-600">
-                          <IconTrash className="w-4 h-4" />
+                        <Button variant="ghost" size="icon" className="text-red-600">
+                          <IconTrash />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -342,6 +426,136 @@ export function VariationsSection({
             })}
           </div>
         )}
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editingVariation} onOpenChange={(open) => !open && setEditingVariation(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Variação</DialogTitle>
+              <DialogDescription>
+                Altere os dados da variação
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editName">Nome da variação *</Label>
+                <Input
+                  id="editName"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Ex: Moída, Fatiado, Descascado"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Rendimento</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Informe quanto entra e quanto sai após o processamento
+                </p>
+
+                <div className="flex items-center gap-2">
+                  {/* Input */}
+                  <div className="flex-1">
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        min="0.001"
+                        placeholder="1"
+                        value={editInputQty}
+                        onChange={(e) => setEditInputQty(e.target.value)}
+                        required
+                        className="w-20"
+                      />
+                      <Select value={editInputUnitId} onValueChange={setEditInputUnitId} required>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Unidade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredUnits.map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.abbreviation}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Entrada</span>
+                  </div>
+
+                  <IconArrowRight className="w-5 h-5 text-muted-foreground shrink-0" />
+
+                  {/* Output */}
+                  <div className="flex-1">
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        min="0.001"
+                        placeholder="0.95"
+                        value={editOutputQty}
+                        onChange={(e) => setEditOutputQty(e.target.value)}
+                        required
+                        className="w-20"
+                      />
+                      <Select value={editOutputUnitId} onValueChange={setEditOutputUnitId} required>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Unidade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredUnits.map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.abbreviation}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <span className="text-xs text-muted-foreground">Saída</span>
+                  </div>
+                </div>
+
+                {/* Yield preview */}
+                {editYieldPreview !== null && (
+                  <div className="mt-2 p-2 bg-muted rounded border">
+                    <span className="text-sm">
+                      Aproveitamento: <strong className={editYieldPreview > 100 ? "text-amber-600" : "text-green-600"}>
+                        {editYieldPreview.toFixed(1)}%
+                      </strong>
+                    </span>
+                    {editYieldPreview > 100 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Rendimento acima de 100% (ex: hidratação de grãos)
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingVariation(null)}
+                  disabled={editLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={editLoading}>
+                  {editLoading ? (
+                    <>
+                      <IconLoader2 className="w-4 h-4 mr-1 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

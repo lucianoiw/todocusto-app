@@ -2,7 +2,15 @@ import Link from "next/link";
 import { getMenus } from "@/actions/menus";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { IconPlus, IconClipboardList } from "@tabler/icons-react";
 import { MenusTable } from "./menus-table";
 import { MenusFilters } from "./menus-filters";
 import { MenusPagination } from "./menus-pagination";
@@ -49,24 +57,41 @@ export default async function MenusPage({ params, searchParams }: MenusPageProps
 
       {menus.length === 0 && !hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhum cardápio cadastrado ainda.
-            </p>
-            <Button asChild>
-              <Link href={`/${workspaceSlug}/menus/new`}>
-                <IconPlus className="w-4 h-4 mr-2" />
-                Criar primeiro cardápio
-              </Link>
-            </Button>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconClipboardList className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>Nenhum cardápio cadastrado</EmptyTitle>
+                <EmptyDescription>
+                  Cardápios reúnem seus produtos com preços de venda. Aqui você configura
+                  taxas (maquininha, iFood, impostos), custos de embalagem, rateio de
+                  custos fixos e margem de lucro. A margem pode ser personalizada por produto.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button asChild>
+                  <Link href={`/${workspaceSlug}/menus/new`}>
+                    <IconPlus className="w-4 h-4" />
+                    Criar primeiro cardápio
+                  </Link>
+                </Button>
+              </EmptyContent>
+            </Empty>
           </CardContent>
         </Card>
       ) : menus.length === 0 && hasFilters ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Nenhum cardápio encontrado com os filtros aplicados.
-            </p>
+          <CardContent className="py-8">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>Nenhum cardápio encontrado</EmptyTitle>
+                <EmptyDescription>
+                  Tente ajustar os filtros para encontrar o que procura.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (
